@@ -1,0 +1,22 @@
+project:
+  name: "tokenizer-workshop"
+  version: "0.1.0"
+  debug: true
+
+data:
+  sample_files:
+    - "data/sample_tr.txt"
+    - "data/sample_en.txt"
+    - "data/sample_code.txt"
+
+tokenizers:
+  first_version:
+    - "char"
+    - "byte"
+    - "simple_bpe"
+  default_tokenizer: "char"
+
+llm:
+  provider: "groq"
+  model: "llama-3.1-8b-instant"
+  use_for_explanations: false

@@ -1,0 +1,9 @@
+This project is designed to teach tokenization step by step.
+
+A tokenizer breaks raw text into smaller units that a model can process.
+Character-level tokenization is simple, but it often creates long sequences.
+Byte-level tokenization is more robust because it can represent any UTF-8 text.
+BPE tokenization improves efficiency by merging frequently occurring byte or character pairs.
+
+The goal of this workshop is not only to build code that works.
+The goal is also to understand the reasoning behind the design.

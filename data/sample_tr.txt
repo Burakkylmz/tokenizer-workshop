@@ -1,0 +1,9 @@
+Merhaba, bu proje tokenization kavramını adım adım öğretmek için geliştiriliyor.
+
+Tokenizer, ham metni modelin işleyebileceği küçük parçalara ayırır.
+Karakter tabanlı yaklaşım basittir ama uzun diziler üretir.
+Byte tabanlı yaklaşım daha kapsayıcıdır çünkü Türkçe karakterleri ve özel sembolleri de temsil edebilir.
+BPE yaklaşımı ise sık görülen parçaları birleştirerek daha verimli token dizileri üretmeyi hedefler.
+
+Bu eğitim çalışmasında amaç sadece çalışan kod yazmak değildir.
+Amaç, neden böyle tasarlandığını da anlamaktır.
