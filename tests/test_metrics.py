@@ -10,6 +10,7 @@ from tokenizer_workshop.evaluators import (
 from tokenizer_workshop.tokenizers import (
     ByteTokenizer,
     CharTokenizer,
+    ByteBPETokenizer,
     SimpleBPETokenizer,
 )
 
@@ -126,3 +127,22 @@ def test_simple_bpe_can_reduce_token_count_on_repetitive_text() -> None:
 
     assert result.token_count < len(text)
     assert result.compression_ratio_vs_chars < 1.0
+
+
+def test_evaluate_tokenizer_roundtrip_is_true_for_byte_bpe_tokenizer() -> None:
+    tokenizer = ByteBPETokenizer(num_merges=3)
+
+    result = evaluate_tokenizer(tokenizer=tokenizer, text="abababa")
+
+    assert result.roundtrip_ok is True
+
+
+def test_byte_bpe_can_reduce_token_count_on_repetitive_text() -> None:
+    tokenizer = ByteBPETokenizer(num_merges=3)
+    text = "abababa"
+
+    result = evaluate_tokenizer(tokenizer=tokenizer, text=text)
+
+    # ByteBPE byte-level çalıştığı için byte_length ile karşılaştırmak daha anlamlı.
+    assert result.token_count < result.byte_length
+    assert result.compression_ratio_vs_bytes < 1.0

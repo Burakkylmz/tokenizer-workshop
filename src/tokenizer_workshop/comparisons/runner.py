@@ -6,6 +6,7 @@ from typing import Callable
 from tokenizer_workshop.evaluators import TokenizationMetrics, evaluate_tokenizer
 from tokenizer_workshop.tokenizers import (
     BaseTokenizer,
+    ByteBPETokenizer,
     ByteTokenizer,
     CharTokenizer,
     SimpleBPETokenizer,
@@ -31,6 +32,7 @@ class ComparisonResult:
 
 def build_default_tokenizer_factories(
     simple_bpe_num_merges: int = 20,
+    byte_bpe_num_merges: int = 20,
 ) -> list[tuple[str, TokenizerFactory]]:
     """
     Projede kullandığımız varsayılan tokenizer factory listesini döndürür.
@@ -45,6 +47,10 @@ def build_default_tokenizer_factories(
         (
             f"simple_bpe_{simple_bpe_num_merges}_merges",
             lambda: SimpleBPETokenizer(num_merges=simple_bpe_num_merges),
+        ),
+        (
+            f"byte_bpe_{byte_bpe_num_merges}_merges", # Label, örneğin "byte_bpe_20_merges".
+            lambda: ByteBPETokenizer(num_merges=byte_bpe_num_merges), # Factory, örneğin lambda: ByteBPETokenizer(num_merges=20).
         ),
     ]
 
@@ -161,5 +167,52 @@ def run_simple_bpe_merge_sweep(
                 metrics=metrics,
             )
         )
+
+    return results
+
+
+def run_byte_bpe_merge_sweep(
+    text: str, # Karşılaştırma için kullanılacak metin.
+    merge_values: list[int], # Karşılaştırma için kullanılacak num_merges değerleri listesi.
+    train_text: str | None = None, # Opsiyonel olarak training metni; verilmezse text kullanılır.
+) -> list[ComparisonResult]:
+    """
+    Aynı text üzerinde farklı num_merges değerleri ile
+    ByteBPETokenizer compare çalıştırır.
+
+    Bu compare tipi şu soruya cevap verir:
+    "num_merges değiştikçe tokenization davranışı nasıl değişiyor?"
+    """
+    # Bu fonksiyon, run_simple_bpe_merge_sweep ile benzer şekilde çalışır ancak ByteBPETokenizer'ı kullanır.
+    # Byte-level BPE'nin davranışı, karakter-level BPE'den farklı olabilir çünkü byte'lar karakterlerden daha düşük seviyeli birimlerdir.
+    
+    # run_simple_bpe_merge_sweep fonksiyonunda olduğu gibi, her num_merges değeri için yeni bir ByteBPETokenizer instance'ı oluşturulur ve evaluate edilir.
+    # Sonuçlar, num_merges değerine göre etiketlenmiş ComparisonResult instance'ları olarak saklanır ve döndürülür.
+
+    # Bu fonksiyon, ByteBPETokenizer'ın num_merges parametresinin tokenization performansı üzerindeki etkisini anlamak isteyenler için yararlı olabilir.
+    # Byte-level BPE'nin karakter-level BPE'ye göre farklı bir tokenization davranışı sergileyebileceği göz önünde bulundurularak, bu karşılaştırma, num_merges parametresinin etkisini daha iyi anlamamıza yardımcı olabilir.
+    # Ayrıca, bu fonksiyon, ByteBPETokenizer'ın farklı num_merges değerleriyle nasıl performans gösterdiğini görselleştirmek veya raporlamak isteyenler için de kullanılabilir.
+    
+    if not text: # Karşılaştırma için kullanılacak metnin boş olup olmadığını kontrol eder.
+        raise ValueError("Comparison text cannot be empty.")
+
+    if not merge_values: # Karşılaştırma için kullanılacak merge_values listesinin boş olup olmadığını kontrol eder.
+        raise ValueError("merge_values cannot be empty.")
+
+    results: list[ComparisonResult] = [] # Sonuçları saklamak için boş bir liste oluşturur.
+
+    for num_merges in merge_values: # merge_values listesindeki her num_merges değeri için döngü başlatır.
+        tokenizer = ByteBPETokenizer(num_merges=num_merges) # Her num_merges değeri için yeni bir ByteBPETokenizer instance'ı oluşturur.
+        metrics = evaluate_tokenizer(
+            tokenizer=tokenizer, # Tokenizer'ı evaluate ederken kullanacağı tokenizer instance'ını belirtir.
+            text=text, # Evaluate edilecek metni belirtir.
+            train_text=train_text, # Opsiyonel olarak training metnini belirtir; verilmezse text kullanılır.
+        ) # Tokenizer'ı evaluate eder ve sonuçları metrics değişkenine atar.
+        results.append(
+            ComparisonResult(
+                label=f"byte_bpe_{num_merges}_merges", # Sonuç için açıklayıcı bir label oluşturur, örneğin "byte_bpe_20_merges".
+                metrics=metrics, # Evaluate edilen metrikleri belirtir.
+            ) # ComparisonResult instance'ı oluşturur ve results listesine ekler.
+        ) # Tüm merge_values için bu işlemi tekrarlar ve sonunda results listesini döndürür.
 
     return results
