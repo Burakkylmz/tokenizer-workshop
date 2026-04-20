@@ -57,10 +57,58 @@ def build_default_tokenizer_factories(
     ]
 
 
+class TokenizerComparator:
+    def __init__(self, tokenizer_factories=None):
+        self.tokenizer_factories = tokenizer_factories or build_default_tokenizer_factories()
+
+    def run_single_text(self, text, train_text=None):
+        if not text:
+            raise ValueError('Comparison text cannot be empty.')
+
+        results = []
+        for label, factory in self.tokenizer_factories:
+            tokenizer = factory()
+            metrics = evaluate_tokenizer(tokenizer=tokenizer, text=text, train_text=train_text)
+            results.append(ComparisonResult(label=label, metrics=metrics))
+        return results
+
+    def run_all_samples(self):
+        sample_texts = load_sample_texts()
+        return {
+            name: self.run_single_text(text=text)
+            for name, text in sample_texts.items()
+        }
+
+    def run_across_samples(self, tokenizer_factory, tokenizer_label):
+        sample_texts = load_sample_texts()
+        results = []
+        for sample_name, text in sample_texts.items():
+            tokenizer = tokenizer_factory()
+            metrics = evaluate_tokenizer(tokenizer=tokenizer, text=text)
+            results.append(ComparisonResult(label=f"{tokenizer_label} | {sample_name}", metrics=metrics))
+        return results
+
+    def run_simple_bpe_sweep(self, text, merge_values, train_text=None):
+        if not text: raise ValueError('Comparison text cannot be empty.')
+        if not merge_values: raise ValueError('merge_values cannot be empty.')
+        return [
+            ComparisonResult(label=f'simple_bpe_{n}_merges', metrics=evaluate_tokenizer(tokenizer=SimpleBPETokenizer(num_merges=n), text=text, train_text=train_text))
+            for n in merge_values
+        ]
+
+    def run_byte_bpe_sweep(self, text, merge_values, train_text=None):
+        if not text: raise ValueError('Comparison text cannot be empty.')
+        if not merge_values: raise ValueError('merge_values cannot be empty.')
+        return [
+            ComparisonResult(label=f'byte_bpe_{n}_merges', metrics=evaluate_tokenizer(tokenizer=ByteBPETokenizer(num_merges=n), text=text, train_text=train_text))
+            for n in merge_values
+        ]
+
+
 def run_same_text_across_tokenizers(
-    text: str,
-    tokenizer_factories: list[tuple[str, TokenizerFactory]] | None = None,
-    train_text: str | None = None,
+        text: str,
+        tokenizer_factories: list[tuple[str, TokenizerFactory]] | None = None,
+        train_text: str | None = None,
 ) -> list[ComparisonResult]:
     """
     Aynı text üzerinde birden fazla tokenizer'ı karşılaştırır.
@@ -87,7 +135,7 @@ def run_same_text_across_tokenizers(
 
 
 def run_all_samples_across_tokenizers(
-    tokenizer_factories: list[tuple[str, TokenizerFactory]] | None = None,
+        tokenizer_factories: list[tuple[str, TokenizerFactory]] | None = None,
 ) -> dict[str, list[ComparisonResult]]:
     """
     config.yaml içinde tanımlı tüm sample text'ler üzerinde
@@ -113,8 +161,8 @@ def run_all_samples_across_tokenizers(
 
 
 def run_same_tokenizer_across_samples(
-    tokenizer_factory: TokenizerFactory,
-    tokenizer_label: str,
+        tokenizer_factory: TokenizerFactory,
+        tokenizer_label: str,
 ) -> list[ComparisonResult]:
     """
     Aynı tokenizer'ı farklı sample text'ler üzerinde çalıştırır.
@@ -137,9 +185,9 @@ def run_same_tokenizer_across_samples(
 
 
 def run_simple_bpe_merge_sweep(
-    text: str,
-    merge_values: list[int],
-    train_text: str | None = None,
+        text: str,
+        merge_values: list[int],
+        train_text: str | None = None,
 ) -> list[ComparisonResult]:
     """
     Aynı text üzerinde farklı num_merges değerleri ile
@@ -174,9 +222,9 @@ def run_simple_bpe_merge_sweep(
 
 
 def run_byte_bpe_merge_sweep(
-    text: str, # Karşılaştırma için kullanılacak metin.
-    merge_values: list[int], # Karşılaştırma için kullanılacak num_merges değerleri listesi.
-    train_text: str | None = None, # Opsiyonel olarak training metni; verilmezse text kullanılır.
+        text: str,  # Karşılaştırma için kullanılacak metin.
+        merge_values: list[int],  # Karşılaştırma için kullanılacak num_merges değerleri listesi.
+        train_text: str | None = None,  # Opsiyonel olarak training metni; verilmezse text kullanılır.
 ) -> list[ComparisonResult]:
     """
     Aynı text üzerinde farklı num_merges değerleri ile
@@ -187,34 +235,36 @@ def run_byte_bpe_merge_sweep(
     """
     # Bu fonksiyon, run_simple_bpe_merge_sweep ile benzer şekilde çalışır ancak ByteBPETokenizer'ı kullanır.
     # Byte-level BPE'nin davranışı, karakter-level BPE'den farklı olabilir çünkü byte'lar karakterlerden daha düşük seviyeli birimlerdir.
-    
+
     # run_simple_bpe_merge_sweep fonksiyonunda olduğu gibi, her num_merges değeri için yeni bir ByteBPETokenizer instance'ı oluşturulur ve evaluate edilir.
     # Sonuçlar, num_merges değerine göre etiketlenmiş ComparisonResult instance'ları olarak saklanır ve döndürülür.
 
     # Bu fonksiyon, ByteBPETokenizer'ın num_merges parametresinin tokenization performansı üzerindeki etkisini anlamak isteyenler için yararlı olabilir.
     # Byte-level BPE'nin karakter-level BPE'ye göre farklı bir tokenization davranışı sergileyebileceği göz önünde bulundurularak, bu karşılaştırma, num_merges parametresinin etkisini daha iyi anlamamıza yardımcı olabilir.
     # Ayrıca, bu fonksiyon, ByteBPETokenizer'ın farklı num_merges değerleriyle nasıl performans gösterdiğini görselleştirmek veya raporlamak isteyenler için de kullanılabilir.
-    
-    if not text: # Karşılaştırma için kullanılacak metnin boş olup olmadığını kontrol eder.
+
+    if not text:  # Karşılaştırma için kullanılacak metnin boş olup olmadığını kontrol eder.
         raise ValueError("Comparison text cannot be empty.")
 
-    if not merge_values: # Karşılaştırma için kullanılacak merge_values listesinin boş olup olmadığını kontrol eder.
+    if not merge_values:  # Karşılaştırma için kullanılacak merge_values listesinin boş olup olmadığını kontrol eder.
         raise ValueError("merge_values cannot be empty.")
 
-    results: list[ComparisonResult] = [] # Sonuçları saklamak için boş bir liste oluşturur.
+    results: list[ComparisonResult] = []  # Sonuçları saklamak için boş bir liste oluşturur.
 
-    for num_merges in merge_values: # merge_values listesindeki her num_merges değeri için döngü başlatır.
-        tokenizer = ByteBPETokenizer(num_merges=num_merges) # Her num_merges değeri için yeni bir ByteBPETokenizer instance'ı oluşturur.
+    for num_merges in merge_values:  # merge_values listesindeki her num_merges değeri için döngü başlatır.
+        tokenizer = ByteBPETokenizer(
+            num_merges=num_merges)  # Her num_merges değeri için yeni bir ByteBPETokenizer instance'ı oluşturur.
         metrics = evaluate_tokenizer(
-            tokenizer=tokenizer, # Tokenizer'ı evaluate ederken kullanacağı tokenizer instance'ını belirtir.
-            text=text, # Evaluate edilecek metni belirtir.
-            train_text=train_text, # Opsiyonel olarak training metnini belirtir; verilmezse text kullanılır.
-        ) # Tokenizer'ı evaluate eder ve sonuçları metrics değişkenine atar.
+            tokenizer=tokenizer,  # Tokenizer'ı evaluate ederken kullanacağı tokenizer instance'ını belirtir.
+            text=text,  # Evaluate edilecek metni belirtir.
+            train_text=train_text,  # Opsiyonel olarak training metnini belirtir; verilmezse text kullanılır.
+        )  # Tokenizer'ı evaluate eder ve sonuçları metrics değişkenine atar.
         results.append(
             ComparisonResult(
-                label=f"byte_bpe_{num_merges}_merges", # Sonuç için açıklayıcı bir label oluşturur, örneğin "byte_bpe_20_merges".
-                metrics=metrics, # Evaluate edilen metrikleri belirtir.
-            ) # ComparisonResult instance'ı oluşturur ve results listesine ekler.
-        ) # Tüm merge_values için bu işlemi tekrarlar ve sonunda results listesini döndürür.
+                label=f"byte_bpe_{num_merges}_merges",
+                # Sonuç için açıklayıcı bir label oluşturur, örneğin "byte_bpe_20_merges".
+                metrics=metrics,  # Evaluate edilen metrikleri belirtir.
+            )  # ComparisonResult instance'ı oluşturur ve results listesine ekler.
+        )  # Tüm merge_values için bu işlemi tekrarlar ve sonunda results listesini döndürür.
 
     return results
