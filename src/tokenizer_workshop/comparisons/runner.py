@@ -10,6 +10,7 @@ from tokenizer_workshop.tokenizers import (
     ByteTokenizer,
     CharTokenizer,
     SimpleBPETokenizer,
+    WordTokenizer,
 )
 from tokenizer_workshop.utils import load_sample_texts
 
@@ -52,6 +53,7 @@ def build_default_tokenizer_factories(
             f"byte_bpe_{byte_bpe_num_merges}_merges", # Label, örneğin "byte_bpe_20_merges".
             lambda: ByteBPETokenizer(num_merges=byte_bpe_num_merges), # Factory, örneğin lambda: ByteBPETokenizer(num_merges=20).
         ),
+        ('word', WordTokenizer),
     ]
 
 
