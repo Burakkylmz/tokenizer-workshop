@@ -3,6 +3,7 @@ from tokenizer_workshop.tokenizers.byte_bpe_tokenizer import ByteBPETokenizer
 from tokenizer_workshop.tokenizers.byte_tokenizer import ByteTokenizer
 from tokenizer_workshop.tokenizers.char_tokenizer import CharTokenizer
 from tokenizer_workshop.tokenizers.simple_bpe_tokenizer import SimpleBPETokenizer
+from tokenizer_workshop.tokenizers.word_tokenizer import WordTokenizer
 
 __all__ = [
     "BaseTokenizer",
@@ -10,4 +11,5 @@ __all__ = [
     "ByteTokenizer",
     "ByteBPETokenizer",
     "SimpleBPETokenizer",
+    'WordTokenizer',
 ]
