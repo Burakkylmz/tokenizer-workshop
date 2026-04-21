@@ -261,6 +261,23 @@ class ByteBPETokenizer(BaseTokenizer):
         # Final token id'lerini döndürür. Bu id'ler, modelin input'u olarak kullanılabilir.
         return token_ids
 
+    def tokenize(self, text: str) -> list[str]:
+        """
+        CompareManager ile uyumlu olması için eklenmiş wrapper metottur.
+
+        encode() integer token id döndürür,
+        fakat compare sistemi string token listesi bekler.
+
+        Bu yüzden:
+        - encode() çağrılır
+        - id'ler tekrar token string'lerine çevrilir
+        """
+
+        token_ids = self.encode(text)
+
+        # id -> token (string) dönüşümü
+        return [self._itos[token_id] for token_id in token_ids]
+
     # ---------------------------------------------------------------------
     # Decoding
     # ---------------------------------------------------------------------
