@@ -2,369 +2,345 @@
 
 ## 1. Purpose
 
-`SimpleBPETokenizer`, bu projede **subword tokenization** fikrini öğretmek için yer alan tokenizer türüdür.
+`SimpleBPETokenizer` is a tokenizer type included in this project to teach the idea of **subword tokenization**.
 
-Bu sınıfın temel amacı, öğrencinin şu soruya net cevap verebilmesini sağlamaktır:
+The main purpose of this class is to enable the learner to clearly answer the following question:
 
-> Sık tekrar eden karakter çiftleri birleştirilirse, metin daha verimli biçimde temsil edilebilir mi?
+> If frequently repeating character pairs are merged, can the text be represented more efficiently?
 
-Bu tokenizer, `CharTokenizer` ve `ByteTokenizer` arasında kavramsal bir köprü değil; onların üstüne çıkan daha güçlü bir adımdır. Çünkü burada artık yalnızca metni küçük parçalara ayırmak değil, **tekrar eden yapıları öğrenmek** söz konusudur.
+This tokenizer is not just a conceptual bridge between `CharTokenizer` and `ByteTokenizer`; it is a more powerful step beyond them. Because here, it is no longer only about splitting text into smaller parts, but about **learning repeating structures**.
 
 ---
 
 ## 2. Why This Tokenizer Exists
 
-Bu tokenizer projede çok kritik bir boşluğu doldurur.
+This tokenizer fills a very critical gap in the project.
 
-### a) Char-level yaklaşımın sınırlarını aşar
-`CharTokenizer` metni anlaşılır biçimde tokenize eder, ama her karakteri ayrı tuttuğu için gereksiz uzun diziler üretebilir.
+### a) Goes beyond the limitations of the char-level approach
 
-### b) Verimlilik fikrini görünür hale getirir
-`SimpleBPETokenizer`, sık görülen komşu parçaları birleştirerek daha kısa token dizileri üretmeye çalışır.
+`CharTokenizer` tokenizes text in an understandable way, but since it treats each character separately, it may produce unnecessarily long sequences.
 
-### c) Modern tokenizer mantığına geçiş sağlar
-Gerçek dünya tokenizer’larının önemli bölümü subword mantığıyla çalışır. Bu sınıf, bunun en sade ve öğretici halini sunar.
+### b) Makes the idea of efficiency visible
 
-Başka bir deyişle, bu tokenizer’ın projedeki rolü şudur:
+`SimpleBPETokenizer` attempts to produce shorter token sequences by merging frequently occurring neighboring parts.
 
-> Tokenization sadece bölmek değildir; bazen daha iyi temsil için parçaları birleştirmektir.
+### c) Provides a transition to modern tokenizer logic
+
+A significant portion of real-world tokenizers operate with subword logic. This class presents the simplest and most educational version of that idea.
+
+In other words, the role of this tokenizer in the project is:
+
+> Tokenization is not only about splitting; sometimes it is about merging parts for a better representation.
 
 ---
 
 ## 3. What “BPE” Means in This Project
 
-BPE, burada **Byte Pair Encoding** fikrinden ilham alan bir birleştirme yaklaşımı olarak ele alınır.
+BPE is handled here as a merge approach inspired by the idea of **Byte Pair Encoding**.
 
-Ancak bu projedeki sürüm özellikle sadeleştirilmiştir:
+However, the version in this project is intentionally simplified:
 
-- byte-level değil
-- character-level başlangıç kullanır
-- regex pre-tokenization içermez
-- özel token yönetimi içermez
-- production parity hedeflemez
+* not byte-level
+* uses character-level initialization
+* does not include regex pre-tokenization
+* does not include special token management
+* does not aim for production parity
 
-Bu yüzden adı `SimpleBPETokenizer`’dır.
+That is why it is named `SimpleBPETokenizer`.
 
-Buradaki amaç, endüstriyel tokenizer sistemlerini birebir taklit etmek değil; **BPE mantığını öğretilebilir hale getirmektir**.
+The goal is not to exactly replicate industrial tokenizer systems, but to make **BPE logic teachable**.
 
 ---
 
 ## 4. Core Idea
 
-Bu tokenizer şu mantıkla çalışır:
+This tokenizer works with the following logic:
 
-1. Metni önce karakter dizisine ayır
-2. Ardışık token çiftlerini say
-3. En sık geçen çifti bul
-4. Bu çifti yeni bir token olarak birleştir
-5. Bu işlemi belirli sayıda tekrar et
-6. Öğrenilen merge kurallarını encode sırasında sırayla uygula
+1. split the text into character tokens
+2. count consecutive token pairs
+3. find the most frequent pair
+4. merge this pair into a new token
+5. repeat this process a specified number of times
+6. apply the learned merge rules in order during encoding
 
-Örnek:
+Example:
 
 ```text
 "abababa"
-````
+```
 
-Başlangıç token’ları:
+Initial tokens:
 
-```text
+```text id="kz9vfb"
 ["a", "b", "a", "b", "a", "b", "a"]
 ```
 
-Ardışık çiftler:
+Consecutive pairs:
 
-```text
+```text id="2m0x4p"
 ("a", "b") -> 3
 ("b", "a") -> 3
 ```
 
-Tie-break kuralına göre ilk seçilen çift:
+According to the tie-break rule, the first selected pair:
 
-```text
+```text id="xq5k9m"
 ("a", "b") -> "ab"
 ```
 
-Birleştirme sonrası token dizisi:
+After merging:
 
-```text
+```text id="k4n9r1"
 ["ab", "ab", "ab", "a"]
 ```
 
-Bu örnek öğrencinin şunu görmesini sağlar:
+This example shows the learner:
 
-> BPE, sık tekrar eden yerel kalıpları daha büyük token’lara dönüştürür.
+> BPE transforms frequently repeating local patterns into larger tokens.
 
 ---
 
 ## 5. Separation of Responsibilities
 
-Bu projede önemli bir mimari karar alınmıştır:
+An important architectural decision is made in this project:
 
-* `BPETrainer` öğrenme işini yapar
-* `SimpleBPETokenizer` encode/decode davranışını yapar
+* `BPETrainer` performs the learning
+* `SimpleBPETokenizer` handles encode/decode behavior
 
-Bu ayrım çok değerlidir çünkü iki farklı sorumluluğu net biçimde ayırır.
+This separation is valuable because it clearly distinguishes two responsibilities.
 
 ### `BPETrainer`
 
-* pair frekanslarını hesaplar
-* en iyi merge’i seçer
-* merge sırasını üretir
+* calculates pair frequencies
+* selects the best merge
+* produces merge order
 
 ### `SimpleBPETokenizer`
 
-* merge kurallarını saklar
-* vocab oluşturur
-* encode sırasında merge’leri uygular
-* decode sırasında string’i geri kurar
+* stores merge rules
+* builds vocabulary
+* applies merges during encoding
+* reconstructs strings during decoding
 
-Bu tasarım, öğrencinin şu ayrımı öğrenmesini sağlar:
+This design teaches the learner:
 
-> “Model neyi öğreniyor?” ile “öğrenilen kurallar nasıl uygulanıyor?” aynı şey değildir.
+> “What the model learns” and “how learned rules are applied” are not the same thing.
 
-Bu, sadece tokenizer için değil genel yazılım mimarisi açısından da çok önemli bir derstir.
+This is an important lesson not only for tokenizers but for software architecture in general.
 
 ---
 
 ## 6. Training Logic
 
-`train()` metodu bu tokenizer’ın merkezidir.
+The `train()` method is the core of this tokenizer.
 
-Training sırasında şu adımlar gerçekleşir:
+During training:
 
-### a) Merge kuralları öğrenilir
+### a) Merge rules are learned
 
-`BPETrainer.train(text, num_merges=...)` çağrılır.
+`BPETrainer.train(text, num_merges=...)` is called.
 
-Buradan şu bilgi gelir:
+From this process, we obtain:
 
-* hangi pair seçildi
-* neye dönüştü
-* o anda frekansı neydi
+* which pair was selected
+* what it was merged into
+* its frequency at that step
 
-Bu bilgiler `MergeStep` nesneleri olarak tutulur.
+These are stored as `MergeStep` objects.
 
-### b) Base vocabulary oluşturulur
+### b) Base vocabulary is created
 
-Eğitim verisindeki benzersiz karakterler alınır.
+Unique characters from the training data are collected.
 
-### c) Learned merged tokens vocabulary’ye eklenir
+### c) Learned merged tokens are added to the vocabulary
 
-Training sırasında öğrenilen yeni token’lar da vocab’e eklenir.
+New tokens learned during training are added to the vocabulary.
 
-Bu çok önemli bir tasarım kararıdır.
-Çünkü encode sırasında bazı karakterler birleşirken bazıları birleşmeyebilir. Bu nedenle tokenizer hem:
+This is an important design decision because:
 
-* base character token’ları
-* merged token’ları
+* some tokens remain as characters
+* some become merged tokens
 
-aynı anda tanımak zorundadır.
+The tokenizer must recognize both.
 
 ---
 
 ## 7. Why Merge Order Matters
 
-Bu tokenizer’da en önemli kavramlardan biri **merge order**’dır.
+One of the most important concepts in this tokenizer is **merge order**.
 
-BPE merge’leri sadece bir “kurallar kümesi” değildir.
-Aynı pair’ler farklı sırayla uygulanırsa farklı tokenization çıktıları oluşabilir.
+BPE merges are not just a set of rules.
+Applying the same pairs in different orders can produce different outputs.
 
-Bu yüzden merge’ler:
+Therefore:
 
-* öğrenildikleri sırayla saklanır
-* encode sırasında aynı sırayla uygulanır
+* merges are stored in order
+* they are applied in the same order during encoding
 
-Bu çok kritik bir noktadır çünkü öğrenciler ilk başta genellikle şu hatalı sezgiye sahiptir:
+This is critical because learners often assume:
 
-> “Sık geçen bütün çiftleri öğrendik, sıranın çok önemi yoktur.”
+> “Once we learn all frequent pairs, order does not matter.”
 
-Aslında sıranın önemi büyüktür.
-Bu tokenizer, bu gerçeği görünür hale getirir.
+In reality, order matters significantly.
+This tokenizer makes that fact visible.
 
 ---
 
 ## 8. Determinism and Tie-Breaking
 
-BPE training sırasında bazen iki farklı pair aynı frekansta olabilir.
+During BPE training, two pairs may have the same frequency.
 
-Örnek:
+Example:
 
-```text
+```text id="k7y5pz"
 "abababa"
 ```
 
-Burada:
+Here:
 
 * `("a", "b")`
 * `("b", "a")`
 
-aynı sayıda görülebilir.
+may appear equally often.
 
-Bu durumda seçim belirsiz bırakılırsa farklı çalıştırmalarda farklı sonuçlar çıkabilir.
-Bu da eğitim ve test açısından kötü olur.
+If selection is ambiguous, results may differ between runs.
 
-Bu projede bu yüzden deterministik bir tie-break kuralı kullanılır:
+To avoid this, a deterministic rule is used:
 
-* önce en yüksek frekans seçilir
-* eşitlikte lexicographically küçük pair seçilir
+* select the highest frequency
+* if equal, choose the lexicographically smaller pair
 
-Bu karar şu faydayı sağlar:
+This ensures:
 
-* aynı input → aynı merge sırası
-* aynı merge sırası → aynı encode çıktısı
-* tekrar üretilebilir deneyler
-
-Bu, eğitim projeleri için özellikle çok önemlidir.
+* same input → same merge order
+* same merge order → same output
+* reproducible experiments
 
 ---
 
 ## 9. Encode Logic
 
-`encode()` metodu şu akışla çalışır:
+The `encode()` method works as follows:
 
-1. Metni karakter token’larına ayır
-2. Öğrenilen merge adımlarını sırayla uygula
-3. Son ortaya çıkan token’ları integer id’ye çevir
+1. split text into character tokens
+2. apply learned merge steps in order
+3. convert resulting tokens into integer IDs
 
-Örnek mantık:
+Conceptually:
 
-```text
+```text id="x8n6ab"
 text -> char tokens -> merged tokens -> token ids
 ```
 
-Burada öğrencinin anlaması gereken en kritik şey şudur:
+The most important concept:
 
-> Encode sırasında tokenization “yeniden öğrenilmez”; sadece önceden öğrenilen merge kuralları uygulanır.
+> Encoding does not relearn tokenization; it only applies previously learned merge rules.
 
-Yani training ile inference ayrıdır.
-
-Bu, tokenizer mantığını anlamak açısından çok önemlidir.
+Training and inference are separate.
 
 ---
 
 ## 10. Decode Logic
 
-`decode()` metodu integer token id’lerini tekrar string parçalarına çevirir ve sonra bunları birleştirir.
+The `decode()` method converts token IDs back to string pieces and joins them.
 
-Bu tokenizer’da token’lar string olduğu için decode süreci görece basittir:
+Because tokens are strings, decoding is straightforward:
 
-```text
+```text id="a7t6dm"
 [id_ab, id_ab, id_a] -> ["ab", "ab", "a"] -> "ababa"
 ```
 
-Burada dikkat edilmesi gereken şey şu:
+Important point:
 
-Decode, token’ların “hangi granularity ile saklandığından” bağımsız biçimde çalışır.
-Yani token tek karakter de olabilir, iki karakterlik merge de olabilir, daha büyük bir parça da olabilir.
+Decoding works regardless of token granularity.
+Tokens may represent:
 
-Bu, subword mantığını öğretmek için çok faydalıdır.
+* single characters
+* merged pairs
+* larger structures
 
 ---
 
 ## 11. Vocabulary Behavior
 
-`SimpleBPETokenizer` için vocabulary şu iki parçadan oluşur:
+The vocabulary consists of two parts:
 
 ### Base tokens
 
-Training metnindeki benzersiz karakterler
+Unique characters from the training text
 
 ### Merged tokens
 
-Training sırasında öğrenilen yeni birleşik token’lar
+Tokens learned during training
 
-Bu nedenle `vocab_size`, genellikle `CharTokenizer`’dan daha büyüktür.
-Ama önemli nokta vocabulary boyutu değil, temsil gücüdür.
+Therefore, `vocab_size` is usually larger than in `CharTokenizer`.
 
-Bu tokenizer şu fikri öğretir:
+The key idea:
 
-> Daha büyük bir vocabulary bazen daha kısa token dizileri elde etmek için bilinçli bir trade-off olabilir.
-
-Bu, tokenizer tasarımında çok temel bir mühendislik bakışıdır.
+> A larger vocabulary can be a deliberate trade-off to achieve shorter token sequences.
 
 ---
 
 ## 12. Compression Behavior
 
-Bu tokenizer’ın en büyük avantajı, tekrar eden yapılarda token sayısını azaltabilmesidir.
+One of the biggest advantages of this tokenizer is reducing token count in repetitive structures.
 
-Örnek:
+Example:
 
-```text
+```text id="e4q9lm"
 "abababa"
 ```
 
-`CharTokenizer` ile:
+With `CharTokenizer`:
 
-* 7 karakter
-* 7 token
+* 7 characters → 7 tokens
 
-`SimpleBPETokenizer` ile:
+With `SimpleBPETokenizer`:
 
-* bazı parçalar merge edilir
-* toplam token sayısı düşebilir
+* some parts are merged
+* total token count may decrease
 
-Bu durum evaluation katmanında metriklerle de görünür hale gelir.
-
-Bu çok değerlidir çünkü öğrenci artık sadece “algoritma doğru mu?” değil, şu soruyu da sorabilir:
-
-> Bu tokenizer gerçekten daha verimli bir temsil üretiyor mu?
+This makes efficiency measurable.
 
 ---
 
 ## 13. Strengths
 
-`SimpleBPETokenizer`’ın güçlü yönleri şunlardır:
+The strengths of `SimpleBPETokenizer`:
 
-### a) Subword mantığını öğretir
+### a) Teaches subword logic
 
-Character-level yaklaşımın üstüne çıkar.
+### b) Uses repeating structures
 
-### b) Tekrar eden yapıları kullanır
+### c) Makes merge order visible
 
-Tokenization’da verimlilik sağlar.
+### d) Inspectable via `MergeStep`
 
-### c) Merge order kavramını görünür kılar
-
-Bu, gerçek tokenizer mantığına yaklaşmak için çok önemlidir.
-
-### d) Test edilebilir ve gözlemlenebilir
-
-Training adımları `MergeStep` üzerinden inspect edilebilir.
-
-### e) Eğitim açısından idealdir
-
-Gerçek dünya fikrini fazla karmaşıklaştırmadan anlatır.
+### e) Ideal for learning
 
 ---
 
 ## 14. Limitations
 
-Bu tokenizer’ın bilinçli olarak kabul edilmiş sınırları vardır.
+### a) Starts at character level
 
-### a) Character-based başlar
+Modern BPE systems often start at byte level.
 
-Gerçek modern BPE sistemlerinin çoğu byte-level başlar.
-Bu sınıf o kadar ileri gitmez.
+### b) No regex pre-tokenization
 
-### b) Regex pre-tokenization yoktur
+No handling for whitespace, punctuation, etc.
 
-Whitespace, punctuation, sayı ve kelime sınırları özel olarak ele alınmaz.
+### c) No unknown token strategy
 
-### c) Unknown token stratejisi yoktur
+No fallback behavior for unseen tokens.
 
-Training sonrası bilinmeyen token’lar için gelişmiş fallback davranışı bulunmaz.
+### d) No save/load mechanism
 
-### d) Save/load mekanizması yoktur
+State is not persisted.
 
-Tokenizer state’i şu an eğitim odaklı kullanım içindir.
+### e) Not optimized for scale
 
-### e) Büyük ölçek için optimize edilmemiştir
-
-Amaç performans değil, açıklıktır.
-
-Bu sınırlar eksiklik olarak değil, **kapsam kararı** olarak görülmelidir.
+Designed for clarity, not performance.
 
 ---
 
@@ -372,94 +348,83 @@ Bu sınırlar eksiklik olarak değil, **kapsam kararı** olarak görülmelidir.
 
 ### SimpleBPETokenizer vs CharTokenizer
 
-* `CharTokenizer` hiçbir şeyi birleştirmez
-* `SimpleBPETokenizer` sık geçen parçaları birleştirir
+* CharTokenizer does not merge
+* BPE merges frequent parts
 
-Sonuç:
+Result:
 
-* `CharTokenizer` daha basit
-* `SimpleBPETokenizer` daha verimli olabilir
+* CharTokenizer → simpler
+* BPE → potentially more efficient
 
 ### SimpleBPETokenizer vs ByteTokenizer
 
-* `ByteTokenizer` sabit ve kapsayıcı byte uzayını kullanır
-* `SimpleBPETokenizer` training ile yeni token’lar öğrenir
+* ByteTokenizer → fixed byte space
+* BPE → learns new tokens
 
-Sonuç:
+Result:
 
-* `ByteTokenizer` daha kapsayıcı
-* `SimpleBPETokenizer` tekrar eden yapıları daha iyi kullanabilir
+* ByteTokenizer → more inclusive
+* BPE → better at exploiting repetition
 
-### SimpleBPETokenizer vs gerçek Regex/Byte BPE sistemleri
+### SimpleBPETokenizer vs real BPE systems
 
-Bu sınıf, gerçek dünya tokenizer’larının sadeleştirilmiş bir versiyonudur.
-Asıl amacı pedagojik açıklıktır.
-
-Yani bu tokenizer, son durak değil; daha gelişmiş tokenizer’lara geçiş basamağıdır.
+This is a simplified version for educational clarity.
+It is a stepping stone toward more advanced tokenizers.
 
 ---
 
 ## 16. Design Decisions in This Project
 
-Bu projede `SimpleBPETokenizer` için alınan temel kararlar şunlardır:
+Key decisions:
 
-* character-level başlangıç tercih edilir
-* merge öğrenme mantığı ayrı `BPETrainer` sınıfında tutulur
-* merge sırası korunur
-* deterministik tie-break uygulanır
-* base token’lar ve merged token’lar birlikte vocabulary’ye alınır
-* encode/decode davranışı açık ve inspectable tutulur
-
-Bu kararların tamamı, öğretici değer ile mimari temizlik arasında denge kurmak için seçilmiştir.
+* character-level initialization
+* separate `BPETrainer`
+* preserve merge order
+* deterministic tie-breaking
+* combined vocabulary (base + merged)
+* transparent encode/decode behavior
 
 ---
 
 ## 17. Testing Perspective
 
-Bu tokenizer için testlerde doğrulanan temel davranışlar şunlardır:
+Tests validate:
 
-* invalid `num_merges` durumunda hata verilmesi
-* boş text ile train edilmemesi
-* training öncesi encode/decode kullanımının hata vermesi
-* vocab’in training sonrası oluşması
-* encode çıktısının integer id listesi olması
-* decode sonrası orijinal metnin geri elde edilmesi
-* merge step’lerin gerçekten öğrenilmesi
-* tekrar eden yapılarda token sayısının azalabilmesi
-* aynı input için aynı merge step sırasının üretilmesi
-
-Bu testler çok değerlidir çünkü bu sınıf artık sadece mapping yapan bir tokenizer değil, **öğrenme davranışı olan bir tokenizer**dır.
+* invalid `num_merges`
+* empty text handling
+* pre-training usage errors
+* vocabulary creation
+* encode output format
+* decode correctness
+* merge learning behavior
+* token reduction in repetition
+* deterministic merge order
 
 ---
 
 ## 18. When to Use
 
-`SimpleBPETokenizer` şu durumlarda özellikle faydalıdır:
+Useful for:
 
-* subword tokenization öğretmek istediğinde
-* merge mantığını göstermek istediğinde
-* neden character-level yaklaşımın yeterli olmadığını anlatmak istediğinde
-* tokenizer verimliliği üzerine düşünmek istediğinde
-* modern LLM tokenizer mantığına giriş yapmak istediğinde
+* teaching subword tokenization
+* demonstrating merge logic
+* explaining limitations of char-level tokenization
+* introducing modern tokenizer concepts
 
-Şu durumlarda ise yeterli değildir:
+Not sufficient for:
 
-* production-grade tokenizer parity gerektiğinde
-* çok dilli ve daha karmaşık veri davranışı gerektiğinde
-* regex boundary kontrolü istendiğinde
-* byte-level robustness gerektiğinde
-
-Bu durumlarda daha ileri yapılar gerekir.
+* production-grade systems
+* multilingual complex behavior
+* regex-based tokenization
+* byte-level robustness
 
 ---
 
 ## 19. Final Takeaway
 
-`SimpleBPETokenizer`, bu projede tokenization eğitimini gerçek anlamda derinleştiren sınıftır.
+`SimpleBPETokenizer` is the class that deepens tokenization understanding in this project.
 
-Bu sınıfın verdiği en önemli ders şudur:
+Its key lesson:
 
-> İyi tokenization yalnızca metni bölmek değil, tekrar eden yapıları daha anlamlı ve daha verimli parçalara dönüştürmektir.
-
-Bu fikir anlaşıldığında, öğrencinin modern tokenizer tasarımlarına bakışı ciddi biçimde değişir.
+> Good tokenization is not just splitting text, but transforming repeating structures into more meaningful and efficient units.
 
