@@ -66,6 +66,23 @@ class ByteTokenizer(BaseTokenizer):
         # Bunu list[int] haline çevirdiğimizde token id'leri doğrudan elde ederiz.
         return list(text.encode("utf-8"))
 
+    def tokenize(self, text: str) -> list[str]:
+        """
+        CompareManager ile uyumlu olması için eklenmiş wrapper metottur.
+
+        encode() integer token id döndürür,
+        fakat compare sistemi string token listesi bekler.
+
+        Bu yüzden:
+        - encode() çağrılır
+        - id'ler tekrar token string'lerine çevrilir
+        """
+
+        token_ids = self.encode(text)
+
+        # id -> token (string) dönüşümü
+        return [str(token_id) for token_id in token_ids]
+
     def decode(self, token_ids: list[int]) -> str:
         """
         Byte token id'lerini tekrar metne dönüştürür.

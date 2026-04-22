@@ -2,50 +2,48 @@
 
 ## 1. Purpose
 
-`CharTokenizer` is the most basic tokenizer type that tokenizes text at the **character level**.
+`CharTokenizer` is the simplest tokenizer class, operating at the **character level**.
 
-The purpose of this tokenizer in the project is to present the concept of tokenization in its most raw and understandable form.
-Here, each unique character is treated as a token.
+Its purpose within this project is to illustrate the concept of tokenization in its most transparent and accessible form. Each unique character is treated as a distinct token.
 
 Example:
 
-```text id="3x6w9v"
+```text
 "merhaba" -> ["m", "e", "r", "h", "a", "b", "a"]
 ```
 
-This approach is especially valuable for learning because it allows the learner to clearly answer the following fundamental questions:
+This approach is particularly valuable from a pedagogical standpoint, as it allows the learner to address the following foundational questions directly:
 
-* what is a token?
-* how is a vocabulary formed?
-* what does encode do?
-* what does decode do?
-* why is a mapping table needed?
+* What is a token?
+* How is a vocabulary constructed?
+* What does `encode` do?
+* What does `decode` do?
+* Why is a mapping table required?
 
 ---
 
 ## 2. Why This Tokenizer Exists
 
-This tokenizer does not exist for real-world performance, but for **teaching and conceptual clarity**.
+This tokenizer does not exist to deliver real-world performance; it exists for **pedagogical purposes and conceptual clarity**.
 
-In the project, `CharTokenizer` plays the following role:
+Within this project, `CharTokenizer` fulfills the following roles:
 
-* it is the starting point of tokenization
-* it provides a reference behavior to understand more advanced tokenizers
-* it creates a comparison foundation with `ByteTokenizer` and `SimpleBPETokenizer`
+* it serves as the entry point for understanding tokenization
+* it provides a reference behavior against which more advanced tokenizers can be understood
+* it establishes a basis for comparison with `ByteTokenizer` and `SimpleBPETokenizer`
 
-In other words, without this class, it becomes difficult for the learner to evaluate more advanced tokenizers.
-Because without seeing the “simplest form” first, it is hard to understand why more complex methods are needed.
+In other words, without this class, evaluating more advanced tokenizers would be considerably more difficult for the learner. The reason is straightforward: unless the simplest form is examined first, the motivation for more complex methods cannot be fully grasped.
 
 ---
 
 ## 3. Core Idea
 
-The logic of this tokenizer is very simple:
+The logic of this tokenizer is straightforward:
 
-1. collect all unique characters from the training data
-2. assign an integer ID to each character
-3. convert text into these IDs
-4. convert back to text when needed
+1. Collect every unique character in the training data.
+2. Assign an integer identifier to each character.
+3. Convert the text into these identifiers.
+4. Reconstruct the text from identifiers when needed.
 
 Example:
 
@@ -60,66 +58,58 @@ encode("aba") -> [0, 1, 0]
 decode([0, 1, 0]) -> "aba"
 ```
 
-Two things are very important here:
+Two elements are central here:
 
 * `stoi`: string to integer
 * `itos`: integer to string
 
-A tokenizer does not only split; it must also be able to reconstruct.
+A tokenizer does not merely decompose text; it must also be able to reconstruct it.
 
 ---
 
 ## 4. Training Logic
 
-For `CharTokenizer`, “training” is not classical machine learning training.
-Here, training means extracting the vocabulary from the text.
+For `CharTokenizer`, the notion of "training" does not correspond to machine-learning training in the conventional sense. Training here refers to the extraction of a vocabulary from a given text.
 
-In the code, this is done with the following logic:
+In code, this is accomplished as follows:
 
-```python id="d8x7zb"
+```python
 unique_chars = sorted(set(text))
 ```
 
-This line contains two important decisions:
+This single line encodes two important decisions:
 
 ### a) `set(text)`
 
-Collects unique characters in the text.
+This collects the unique characters present in the text.
 
 ### b) `sorted(...)`
 
-Orders characters deterministically.
+This arranges the characters in a deterministic order.
 
-Why is this important?
+This matters because the output of the tokenizer must be reproducible. When the same text is used for training twice, each character must be assigned the same identifier.
 
-Because tokenizer outputs must be reproducible.
-When training on the same text multiple times, the same character must receive the same ID.
-
-Without `sorted`, the mapping order may become unpredictable in some cases, leading to unstable results.
+Without `sorted`, the ordering of the mapping can become unpredictable under certain conditions, rendering the training output unstable.
 
 ---
 
 ## 5. Encode Logic
 
-The `encode()` method converts each character in the text into an integer token ID.
+The `encode()` method converts each character in the input text into an integer token id.
 
 Example:
 
-```text id="4r8y0x"
+```text
 "merhaba" -> [id_m, id_e, id_r, id_h, id_a, id_b, id_a]
 ```
 
-An important design decision is made here:
+A deliberate design decision has been made at this stage: when the tokenizer encounters a character not seen during training, it **does not pass over it silently** and **does not fabricate a fallback**. Instead, it raises an error directly.
 
-If the tokenizer encounters a character that it has not seen during training, it does **not silently skip it** and does **not create a fake solution**.
-It directly raises an error.
+This decision is pedagogically justified, as it makes the following problem explicit:
 
-This is correct for learning purposes because it makes the following problem visible:
+> How should a tokenizer behave when confronted with characters outside its coverage?
 
-> What should a tokenizer do when it encounters characters it does not cover?
-
-In real-world systems, this problem is solved using methods like `unknown token`, `fallback`, or `byte fallback`.
-But here, the goal is to expose the problem clearly first.
+In practice, this problem is addressed through mechanisms such as `unknown token`, `fallback`, and `byte fallback`. Here, however, the aim is first to expose the problem in its most basic form.
 
 ---
 
@@ -127,151 +117,143 @@ But here, the goal is to expose the problem clearly first.
 
 The `decode()` method converts a list of integer tokens back into text.
 
-This uses the `_itos` mapping:
+At this stage, the `_itos` mapping is used:
 
-```text id="m5o2vz"
+```text
 [0, 1, 0] -> "aba"
 ```
 
-The key point here is:
+An important observation is the following: decoding demonstrates that the tokenizer truly operates in both directions. Many learners understand the encode side but fail to recognize why the decode side is necessary.
 
-Decoding demonstrates that the tokenizer works bidirectionally.
-Many learners understand encoding but overlook why decoding is necessary.
-
-However, decoding is essential for:
-
-* inspecting tokenizer behavior
-* debugging
-* validating correctness
+In reality, decoding is essential for inspecting, debugging, and verifying the behavior of a tokenizer.
 
 ---
 
 ## 7. Vocabulary Behavior
 
-For `CharTokenizer`, the vocabulary size is:
+For `CharTokenizer`, the vocabulary size is defined as follows:
 
-> the number of unique characters in the training data
+> The number of unique characters in the training data.
 
-This means:
+This has several consequences:
 
-* vocabulary is data-dependent
+* the vocabulary is data-dependent
 * different corpora produce different vocabularies
-* small text → small vocab
-* new characters → require retraining
+* a small text yields a small vocabulary
+* previously unseen characters require retraining
 
-This behavior is educationally valuable because it encourages learners to ask:
-
-> Is the vocabulary fixed or learned?
+This behavior is pedagogically instructive, as it prompts the learner to consider a fundamental question in tokenizer design: is the vocabulary fixed, or is it learned?
 
 ---
 
 ## 8. Strengths
 
-The strengths of `CharTokenizer`:
+The strengths of `CharTokenizer` can be summarized as follows:
 
-* conceptually very clear
-* simple implementation
-* teaches encode/decode logic
-* makes vocabulary creation visible
-* easy to debug
-* ideal for learning
+* it is conceptually clear
+* it is straightforward to implement
+* it illustrates the logic of encoding and decoding
+* it makes vocabulary construction explicit
+* it is easy to debug
+* it is pedagogically effective
 
-This makes it a very appropriate first tokenizer in the project.
+For these reasons, its selection as the first tokenizer in the project is well justified.
 
 ---
 
 ## 9. Limitations
 
-This tokenizer has serious limitations:
+This tokenizer has several significant limitations.
 
-### a) Sequence length can grow significantly
+### a) Sequence length can grow considerably
 
-Each character becomes a token.
+Because each character constitutes a separate token, the text may be transformed into very long token sequences.
 
-### b) Does not capture structural repetition
+### b) It does not exploit structural regularities
 
-It does not learn patterns like words or common substrings.
+For instance, it does not specifically learn frequent patterns such as the word `"token"` or the suffix `"ing"`.
 
-### c) Breaks on unseen characters
+### c) It fails on unseen characters
 
-Cannot encode new characters without retraining.
+If a previously unseen character is encountered, the tokenizer cannot encode it.
 
-### d) Inefficient for real-world usage
+### d) Its real-world efficiency is limited
 
-Modern LLM systems use more advanced tokenizers.
+In modern LLM systems, more advanced tokenizers are generally preferred.
+
+In summary, this tokenizer is pedagogically strong but practically inefficient.
 
 ---
 
 ## 10. Comparison with Other Tokenizers
 
-### CharTokenizer vs ByteTokenizer
+### CharTokenizer vs. ByteTokenizer
 
-* CharTokenizer is character-based
-* ByteTokenizer is UTF-8 byte-based
+* `CharTokenizer` operates on characters.
+* `ByteTokenizer` operates on UTF-8 bytes.
 
-CharTokenizer is more intuitive.
-ByteTokenizer is more inclusive.
+`ByteTokenizer` offers broader coverage, as it can represent any UTF-8 text. However, `CharTokenizer` is conceptually easier to understand.
 
-### CharTokenizer vs SimpleBPETokenizer
+### CharTokenizer vs. SimpleBPETokenizer
 
-* CharTokenizer does not merge anything
-* SimpleBPETokenizer merges frequent patterns
+* `CharTokenizer` performs no merging.
+* `SimpleBPETokenizer` merges frequently occurring units.
 
-So BPE can produce shorter token sequences in many cases.
+Consequently, `SimpleBPETokenizer` can produce shorter token sequences for certain texts.
 
 ---
 
 ## 11. Design Decisions in This Project
 
-Key design decisions for `CharTokenizer`:
+The key design decisions adopted for `CharTokenizer` in this project are as follows:
 
-* vocabulary is learned from text
-* character order is deterministic
-* encode/decode does not work before training
-* unknown characters raise errors
-* educational clarity is prioritized over performance
+* the vocabulary is learned from the text
+* character ordering is established deterministically
+* encode and decode cannot be invoked prior to training
+* an error is raised when unseen characters are encountered
+* pedagogical value is prioritized over performance
+
+These decisions have been made deliberately for educational purposes rather than for production use.
 
 ---
 
 ## 12. Testing Perspective
 
-Tests validate:
+The core behaviors verified by the tests for this tokenizer are as follows:
 
-* vocabulary is created after training
-* encode output is an integer list
-* decode reconstructs original text
-* using before training raises an error
-* unknown characters raise errors
-* same input produces same vocabulary
+* the vocabulary is constructed after training
+* the encode output is a list of integer ids
+* the original text is faithfully recovered after decoding
+* invoking the tokenizer before training raises an error
+* an error is raised when unseen characters are encountered
+* the same input produces an identical vocabulary
 
-These tests validate both correctness and design contracts.
+These tests verify correctness while also preserving the underlying design contract.
 
 ---
 
 ## 13. When to Use
 
-Useful when:
+`CharTokenizer` is meaningful in the following contexts:
 
-* teaching tokenization
-* demonstrating basic tokenizer logic
-* running simple and transparent experiments
-* explaining encode/decode mapping
+* introducing the concept of tokenization
+* illustrating the fundamental logic of tokenization
+* conducting small, transparent experiments
+* explaining the structure of encode and decode mappings
 
-Not sufficient for:
+It is generally insufficient in the following contexts:
 
 * large-scale NLP systems
-* efficient sequence representation
-* multilingual complex data
+* scenarios requiring efficient sequence representation
+* multilingual or otherwise complex data
 * modern LLM pipelines
 
 ---
 
 ## 14. Final Takeaway
 
-`CharTokenizer` is the simplest tokenizer in the project, but not the least important.
-On the contrary, it provides the fundamental conceptual framework needed to understand all other tokenizers.
+Although `CharTokenizer` is the simplest tokenizer in this project, it is by no means the least significant. On the contrary, it provides the conceptual framework necessary for understanding all other tokenizers.
 
-Its main value is:
+The essential value of this class can be stated as follows:
 
-> The essence of tokenization becomes clearly visible in its simplest form here.
-
+> The essence of tokenization first emerges here, in its most elementary form.
