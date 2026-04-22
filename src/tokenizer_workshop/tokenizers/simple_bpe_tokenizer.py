@@ -102,6 +102,23 @@ class SimpleBPETokenizer(BaseTokenizer):
 
         return token_ids
 
+    def tokenize(self, text: str) -> list[str]:
+        """
+        CompareManager ile uyumlu olması için eklenmiş wrapper metottur.
+
+        encode() integer token id döndürür,
+        fakat compare sistemi string token listesi bekler.
+
+        Bu yüzden:
+        - encode() çağrılır
+        - id'ler tekrar token string'lerine çevrilir
+        """
+
+        token_ids = self.encode(text)
+
+        # id -> token (string) dönüşümü
+        return [str(token_id) for token_id in token_ids]
+
     def decode(self, token_ids: list[int]) -> str:
         """
         Token ids'i tekrar text'e decode eder.

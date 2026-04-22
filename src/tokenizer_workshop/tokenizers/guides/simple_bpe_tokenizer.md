@@ -2,66 +2,63 @@
 
 ## 1. Purpose
 
-`SimpleBPETokenizer` is a tokenizer type included in this project to teach the idea of **subword tokenization**.
+`SimpleBPETokenizer` is the tokenizer class included in this project to introduce the concept of **subword tokenization**.
 
-The main purpose of this class is to enable the learner to clearly answer the following question:
+Its principal objective is to enable the learner to answer the following question clearly:
 
-> If frequently repeating character pairs are merged, can the text be represented more efficiently?
+> Can text be represented more efficiently by merging frequently occurring adjacent character pairs?
 
-This tokenizer is not just a conceptual bridge between `CharTokenizer` and `ByteTokenizer`; it is a more powerful step beyond them. Because here, it is no longer only about splitting text into smaller parts, but about **learning repeating structures**.
+Rather than serving merely as a conceptual bridge between `CharTokenizer` and `ByteTokenizer`; this tokenizer represents a substantive extension of them. Its scope is not limited to decomposing text into smaller units; it also involves **learning recurring patterns**.
 
 ---
 
 ## 2. Why This Tokenizer Exists
 
-This tokenizer fills a very critical gap in the project.
+This tokenizer addresses a critical gap within the project.
 
-### a) Goes beyond the limitations of the char-level approach
+### a) It transcends the limitations of the character-level approach
+Although `CharTokenizer` tokenizes text in an intuitive manner, its treatment of each character as an independent unit inevitably yields unnecessarily long sequences.
 
-`CharTokenizer` tokenizes text in an understandable way, but since it treats each character separately, it may produce unnecessarily long sequences.
+### b) It renders the notion of efficiency explicit
+`SimpleBPETokenizer` seeks to produce more compact token sequences by merging frequently co-occurring adjacent units.
 
-### b) Makes the idea of efficiency visible
+### c) It provides a transition toward modern tokenizer design
+A substantial proportion of contemporary tokenizers operate on subword principles. This class presents the simplest and most pedagogically instructive version of that approach.
 
-`SimpleBPETokenizer` attempts to produce shorter token sequences by merging frequently occurring neighboring parts.
+In summary, the role of this tokenizer within the project can be described as follows:
 
-### c) Provides a transition to modern tokenizer logic
-
-A significant portion of real-world tokenizers operate with subword logic. This class presents the simplest and most educational version of that idea.
-
-In other words, the role of this tokenizer in the project is:
-
-> Tokenization is not only about splitting; sometimes it is about merging parts for a better representation.
+> Tokenization is not concerned solely with segmentation; at times, it entails the merging of units to achieve a more effective representation.
 
 ---
 
-## 3. What “BPE” Means in This Project
+## 3. What "BPE" Means in This Project
 
-BPE is handled here as a merge approach inspired by the idea of **Byte Pair Encoding**.
+In this project, BPE is treated as a merging approach inspired by **Byte Pair Encoding**. 
 
-However, the version in this project is intentionally simplified:
+The version implemented here, however, is deliberately simplified:
 
-* not byte-level
-* uses character-level initialization
-* does not include regex pre-tokenization
-* does not include special token management
-* does not aim for production parity
+- it does not operate at the byte level
+- it is initialized at the character level
+- it omits regex-based pre-tokenization
+- it does not incorporate special-token management
+- it does not aim for production parity
+  
+For this reason, the class is named `SimpleBPETokenizer`.
 
-That is why it is named `SimpleBPETokenizer`.
-
-The goal is not to exactly replicate industrial tokenizer systems, but to make **BPE logic teachable**.
+The objective is not to replicate industrial tokenizer systems, but to **make the logic of BPE pedagogically accessible**.
 
 ---
 
 ## 4. Core Idea
 
-This tokenizer works with the following logic:
+The tokenizer operates according to the following logic:
 
-1. split the text into character tokens
-2. count consecutive token pairs
-3. find the most frequent pair
-4. merge this pair into a new token
-5. repeat this process a specified number of times
-6. apply the learned merge rules in order during encoding
+1. The text is first decomposed into a sequence of characters.
+2. Consecutive token pairs are counted.
+3. The most frequent pair is identified.
+4. This pair is merged into a new token.
+5. The procedure is repeated for a fixed number of iterations.
+6. During encoding, the learned merge rules are applied in order.
 
 Example:
 
@@ -71,276 +68,291 @@ Example:
 
 Initial tokens:
 
-```text id="kz9vfb"
+```text
 ["a", "b", "a", "b", "a", "b", "a"]
 ```
 
 Consecutive pairs:
 
-```text id="2m0x4p"
+```text
 ("a", "b") -> 3
 ("b", "a") -> 3
 ```
 
-According to the tie-break rule, the first selected pair:
+According to the tie-breaking rule, the pair selected first is:
 
-```text id="xq5k9m"
+```text
 ("a", "b") -> "ab"
 ```
 
-After merging:
+The resulting token sequence after merging:
 
-```text id="k4n9r1"
+```text
 ["ab", "ab", "ab", "a"]
 ```
 
-This example shows the learner:
+This example illustrates the following principle:
 
-> BPE transforms frequently repeating local patterns into larger tokens.
+> BPE transforms frequently recurring local patterns into larger tokens.
 
 ---
 
 ## 5. Separation of Responsibilities
 
-An important architectural decision is made in this project:
+A deliberate architectural decision has been made in this project:
 
-* `BPETrainer` performs the learning
-* `SimpleBPETokenizer` handles encode/decode behavior
+* `BPETrainer` is responsible for the learning process.
+* `SimpleBPETokenizer` is responsible for encoding and decoding.
 
-This separation is valuable because it clearly distinguishes two responsibilities.
+This separation is valuable because it clearly delineates two distinct responsibilities.
 
 ### `BPETrainer`
 
-* calculates pair frequencies
-* selects the best merge
-* produces merge order
+* computes pair frequencies
+* selects the optimal merge
+* determines the merge order
 
 ### `SimpleBPETokenizer`
 
-* stores merge rules
-* builds vocabulary
+* stores the merge rules
+* constructs the vocabulary
 * applies merges during encoding
-* reconstructs strings during decoding
+* reconstructs the original string during decoding
 
-This design teaches the learner:
+This design enables the learner to recognize the following distinction:
 
-> “What the model learns” and “how learned rules are applied” are not the same thing.
+> "What is the model learning?" and "How are the learned rules applied?" are fundamentally different questions.
 
-This is an important lesson not only for tokenizers but for software architecture in general.
+This lesson extends well beyond tokenizers; it constitutes a core principle of software architecture.
 
 ---
 
 ## 6. Training Logic
 
-The `train()` method is the core of this tokenizer.
+The `train()` method constitutes the core of this tokenizer.
 
-During training:
+Training proceeds through the following stages:
 
 ### a) Merge rules are learned
 
-`BPETrainer.train(text, num_merges=...)` is called.
+`BPETrainer.train(text, num_merges=...)` is invoked
 
-From this process, we obtain:
+The following information is returned:
 
-* which pair was selected
-* what it was merged into
-* its frequency at that step
+* the pair that was selected
+* the token it was merged into
+* its frequency at the moment of selection
 
-These are stored as `MergeStep` objects.
+This information is stored as `MergeStep` objects.
 
-### b) Base vocabulary is created
+### b) The base vocabulary is constructed
 
-Unique characters from the training data are collected.
+The unique characters observed in the training data are extracted and used to form the base vocabulary.
 
 ### c) Learned merged tokens are added to the vocabulary
 
-New tokens learned during training are added to the vocabulary.
+The new tokens learned during training are appended to the vocabulary.
 
-This is an important design decision because:
+This is a deliberate design decision. During encoding, some characters may be merged while others remain unchanged, and the tokenizer must therefore recognize both categories simultaneously:
 
-* some tokens remain as characters
-* some become merged tokens
-
-The tokenizer must recognize both.
+* base character tokens
+* merged tokens
 
 ---
 
 ## 7. Why Merge Order Matters
 
-One of the most important concepts in this tokenizer is **merge order**.
+One of the most fundamental concepts in this tokenizer is the **merge order**.
 
-BPE merges are not just a set of rules.
-Applying the same pairs in different orders can produce different outputs.
+BPE merges are not merely a set of rules. Applying the same rules in a different order can yield different tokenization outputs.
 
-Therefore:
+For this reason, merges are:
 
-* merges are stored in order
-* they are applied in the same order during encoding
+* stored in the order in which they were learned
+* applied in that same order during encoding
 
-This is critical because learners often assume:
+This is a critical point, as learners often begin with the following misconception:
 
-> “Once we learn all frequent pairs, order does not matter.”
+> "Once all frequently occurring pairs have been learned, their order is of little importance."
 
-In reality, order matters significantly.
-This tokenizer makes that fact visible.
+In reality, the order is highly consequential, and this tokenizer makes that fact explicit.
 
 ---
 
 ## 8. Determinism and Tie-Breaking
 
-During BPE training, two pairs may have the same frequency.
+During BPE training, two distinct pairs may occasionally exhibit identical frequencies.
 
 Example:
 
-```text id="k7y5pz"
+```text
 "abababa"
 ```
 
-Here:
+Here, the pairs
 
 * `("a", "b")`
 * `("b", "a")`
 
-may appear equally often.
+share the same frequency.
 
-If selection is ambiguous, results may differ between runs.
+If the selection were left ambiguous in such cases, different runs could produce different results, which would be detrimental to both training and testing.
 
-To avoid this, a deterministic rule is used:
+For this reason, a deterministic tie-breaking rule is adopted in this project:
 
-* select the highest frequency
-* if equal, choose the lexicographically smaller pair
+* the pair with the highest frequency is selected first
+* in the case of a tie, the lexicographically smaller pair is chosen
 
-This ensures:
+This decision yields the following benefits:
 
 * same input → same merge order
-* same merge order → same output
+* same merge order → same encoding output
 * reproducible experiments
+
+Reproducibility is especially important in an educational project.Share
 
 ---
 
 ## 9. Encode Logic
 
-The `encode()` method works as follows:
+The `encode()` method operates according to the following procedure:
 
-1. split text into character tokens
-2. apply learned merge steps in order
-3. convert resulting tokens into integer IDs
+1. The text is split into character tokens.
+2. The learned merge steps are applied in order.
+3. The resulting tokens are converted into integer ids.
 
-Conceptually:
+The overall flow can be summarized as:
 
-```text id="x8n6ab"
+```text
 text -> char tokens -> merged tokens -> token ids
 ```
 
-The most important concept:
+The most critical point for the learner to grasp is the following:
 
-> Encoding does not relearn tokenization; it only applies previously learned merge rules.
+> Tokenization is not re-learned during encoding; only the previously learned merge rules are applied.
 
-Training and inference are separate.
+In other words, training and inference are distinct phases. This distinction is essential to understanding how tokenizers operate.
 
 ---
 
 ## 10. Decode Logic
 
-The `decode()` method converts token IDs back to string pieces and joins them.
+The `decode()` method converts integer token ids back into  their corresponding string pieces and concatenates them.
 
-Because tokens are strings, decoding is straightforward:
+Since tokens are stored as strings in this tokenizer, the decoding process is relatively straightforward:
 
-```text id="a7t6dm"
+```text
 [id_ab, id_ab, id_a] -> ["ab", "ab", "a"] -> "ababa"
 ```
 
-Important point:
+An important observation follows from this:
 
-Decoding works regardless of token granularity.
-Tokens may represent:
+Decoding operates independently of the granularity at which tokens are stored. A token may be a single character, a two-character merge, or a larger unit, without affecting the decoding procedure.
 
-* single characters
-* merged pairs
-* larger structures
+This property makes the tokenizer particularly well suited for illustrating subword logic.
 
 ---
 
 ## 11. Vocabulary Behavior
 
-The vocabulary consists of two parts:
+The vocabulary of `SimpleBPETokenizer` consists of two components:
 
 ### Base tokens
 
-Unique characters from the training text
+The unique characters observed in the training text.
 
 ### Merged tokens
 
-Tokens learned during training
+The new tokens learned during training.
 
-Therefore, `vocab_size` is usually larger than in `CharTokenizer`.
+As a consequence, `vocab_size` is typically larger than that of `CharTokenizer`. The critical factor, however, is not the size of the vocabulary but its representational power.
 
-The key idea:
+This tokenizer illustrates the following idea:
 
-> A larger vocabulary can be a deliberate trade-off to achieve shorter token sequences.
+> A larger vocabulary can represent a deliberate trade-off made in pursuit of shorter token sequences.
+
+This perspective is foundational to tokenizer design from an engineering standpoint.
 
 ---
 
 ## 12. Compression Behavior
 
-One of the biggest advantages of this tokenizer is reducing token count in repetitive structures.
+The principal advantage of this tokenizer lies in its ability to reduce the number of tokens in recurring structures.
 
 Example:
 
-```text id="e4q9lm"
+```text
 "abababa"
 ```
 
 With `CharTokenizer`:
 
-* 7 characters → 7 tokens
+* 7 characters
+* 7 tokens
 
 With `SimpleBPETokenizer`:
 
-* some parts are merged
-* total token count may decrease
+* several units are merged
+* the total number of tokens is reduced
 
-This makes efficiency measurable.
+This effect is also reflected in the metrics produced by the evaluation layer.
+
+This enables the learner to ask not only "Is the algorithm correct?" but also:
+
+> Does this tokenizer actually yield a more efficient representation?
 
 ---
 
 ## 13. Strengths
 
-The strengths of `SimpleBPETokenizer`:
+The strengths of `SimpleBPETokenizer` can be summarized as follows:
 
-### a) Teaches subword logic
+### a) It introduces subword logic
 
-### b) Uses repeating structures
+It extends beyond the character-level approach.
 
-### c) Makes merge order visible
+### b) It exploits recurring structures
 
-### d) Inspectable via `MergeStep`
+It improves efficiency in tokenization.
 
-### e) Ideal for learning
+### c) It makes the concept of merge order explicit
 
+This is essential for approaching the logic of real-world tokenizers.
+
+### d) It is both testable and observable
+
+Training steps can be inspected through `MergeStep` objects.
+
+### e) It is pedagogically effective
+
+It presents the core idea without unnecessary complexity.
 ---
 
 ## 14. Limitations
 
-### a) Starts at character level
+This tokenizer operates under a set of deliberately accepted constraints.
 
-Modern BPE systems often start at byte level.
+### a) It is initialized at the character level
 
-### b) No regex pre-tokenization
+Most modern BPE systems operate at the byte level; this tokenizer does not adopt that approach.
 
-No handling for whitespace, punctuation, etc.
+### b) It lacks regex-based pre-tokenization
 
-### c) No unknown token strategy
+Whitespace, punctuation, numerical characters, and word boundaries are not handled separately.
 
-No fallback behavior for unseen tokens.
+### c) It has no unknown-token strategy
 
-### d) No save/load mechanism
+No advanced fallback mechanism is provided for tokens unseen after training.
 
-State is not persisted.
+### d) It lacks a save/load mechanism
 
-### e) Not optimized for scale
+The tokenizer state is currently intended for training-oriented use.
 
-Designed for clarity, not performance.
+### e) It is not optimized for large-scale use
+
+The objective is clarity rather than performance.
+
+These limitations should not be interpreted as deficiencies; rather, they reflect **deliberate decisions of scope**.
 
 ---
 
@@ -348,83 +360,92 @@ Designed for clarity, not performance.
 
 ### SimpleBPETokenizer vs CharTokenizer
 
-* CharTokenizer does not merge
-* BPE merges frequent parts
+* `CharTokenizer` performs no merging.
+* `SimpleBPETokenizer` merges frequently occurring units.
 
-Result:
+In consequence:
 
-* CharTokenizer → simpler
-* BPE → potentially more efficient
+* `CharTokenizer` is simpler
+* `SimpleBPETokenizer` can achieve greater efficiency.
 
 ### SimpleBPETokenizer vs ByteTokenizer
 
-* ByteTokenizer → fixed byte space
-* BPE → learns new tokens
+* `ByteTokenizer` relies on a fixed and comprehensive byte space.
+* `SimpleBPETokenizer` learns new tokens through training.
 
 Result:
 
-* ByteTokenizer → more inclusive
-* BPE → better at exploiting repetition
+* `ByteTokenizer` offers broader coverage.
+* `SimpleBPETokenizer` exploits recurring structures more effectively.
 
-### SimpleBPETokenizer vs real BPE systems
+### SimpleBPETokenizer vs real-world Regex/Byte BPE systems
 
-This is a simplified version for educational clarity.
-It is a stepping stone toward more advanced tokenizers.
+This class is a simplified counterpart of the tokenizers used in practice. Its primary purpose is pedagogical clarity.
+
+Accordingly, this tokenizer is not a final destination, but a stepping stone toward more advanced tokenizer designs.
 
 ---
 
 ## 16. Design Decisions in This Project
 
-Key decisions:
+The fundamental design decisions adopted for `SimpleBPETokenizer` in this project are as follows:
 
-* character-level initialization
-* separate `BPETrainer`
-* preserve merge order
-* deterministic tie-breaking
-* combined vocabulary (base + merged)
-* transparent encode/decode behavior
+* initialization at the character level is preferred
+* the merge-learning logic is isolated in a separate `BPETrainer` class
+* the merge order is preserved
+* deterministic tie-breaking is applied
+* base tokens and merged tokens are integrated into a single vocabulary
+* encode and decode behavior is kept clear and inspectable
+
+Each of these decisions reflects a balance between educational value and architectural clarity.
 
 ---
 
 ## 17. Testing Perspective
 
-Tests validate:
+The core behaviors verified by the tests for this tokenizer are as follows:
 
-* invalid `num_merges`
-* empty text handling
-* pre-training usage errors
-* vocabulary creation
-* encode output format
-* decode correctness
-* merge learning behavior
-* token reduction in repetition
-* deterministic merge order
+* an error is raised when an invalid `num_merges` is supplied
+* training on empty text is rejected
+* invoking encode or decode prior to training raises an error
+* the vocabulary is constructed successfully after training
+* the encode output is a list of integer ids
+* the original text is faithfully recovered after decoding
+* merge steps are indeed learned during training
+* the token count decreases in the presence of recurring structures
+* the same input produces an identical sequence of merge steps
+
+These tests are valuable because this class is no longer merely a mapping-based tokenizer, but **a tokenizer with learning behavior**.
 
 ---
 
 ## 18. When to Use
 
-Useful for:
+`SimpleBPETokenizer` is particularly well suited to the following contexts:
 
-* teaching subword tokenization
-* demonstrating merge logic
-* explaining limitations of char-level tokenization
-* introducing modern tokenizer concepts
+* introducing the concept of subword tokenization
+* demonstrating the logic of merge operations
+* explaining why the character-level approach is insufficient
+* reflecting on tokenizer efficiency
+* serving as an introduction to modern LLM tokenizer design
 
-Not sufficient for:
+It is not suitable in the following contexts:
 
-* production-grade systems
-* multilingual complex behavior
-* regex-based tokenization
-* byte-level robustness
+* when production-grade tokenizer parity is required
+* when robust multilingual behavior is required
+* when regex-based boundary control is needed
+* when byte-level robustness is required
+
+These cases call for more advanced architectures.Share
 
 ---
 
 ## 19. Final Takeaway
 
-`SimpleBPETokenizer` is the class that deepens tokenization understanding in this project.
+`SimpleBPETokenizer` is the class that most substantially enriches the project's treatment of tokenization.
 
-Its key lesson:
+The most important lesson it offers is the following:
 
-> Good tokenization is not just splitting text, but transforming repeating structures into more meaningful and efficient units.
+> Effective tokenization is not merely the segmentation of text, but the transformation of recurring structures into more meaningful and more efficient units.
 
+Once this principle is internalized, the learner's perspective on modern tokenizer design is fundamentally transformed.
