@@ -120,7 +120,7 @@ class CharTokenizer(BaseTokenizer):
         token_ids = self.encode(text)
 
         # id -> token (string) dönüşümü
-        return [str(token_id) for token_id in token_ids]
+        return [self._itos[token_id] for token_id in token_ids]
 
     def decode(self, token_ids: list[int]) -> str:
         """
