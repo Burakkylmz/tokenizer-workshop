@@ -391,6 +391,9 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
         elif name == "regex_bpe":
             lines.append("• regex_bpe : best for custom tokenization patterns and domain-specific text")
 
+        elif name == "ngram":
+            lines.append("• ngram      : best for capturing local context and multi-word expressions")
+
     lines.extend(
         [
             "",
@@ -400,6 +403,7 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• Subword/BPE tokenization balances flexibility and compression.",
             "• Byte-level tokenization ensures full coverage of any input.",
             "• Regex-based tokenization allows for custom patterns and domain-specific text handling.",
+            "• N-gram tokenization captures local context and multi-word expressions, which can be beneficial for certain languages and tasks, but may increase token count compared to word-level tokenization.",
             "",
         ]
     )

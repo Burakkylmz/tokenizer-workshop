@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from tokenizer_workshop.tokenizers.base import BaseTokenizer
+from tokenizer_workshop.tokenizers.registry import register_tokenizer
 
 
+@register_tokenizer("byte")
 class ByteTokenizer(BaseTokenizer):
     """
     UTF-8 kodlamasını temel alan basit bir byte-level tokenizer.

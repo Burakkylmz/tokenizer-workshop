@@ -3,217 +3,310 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from tokenizer_workshop.api.services.tokenizer_factory import TokenizerFactory
 from tokenizer_workshop.evaluators import TokenizationMetrics, evaluate_tokenizer
-from tokenizer_workshop.tokenizers import (
-    BaseTokenizer,
-    ByteBPETokenizer,
-    ByteTokenizer,
-    CharTokenizer,
-    SimpleBPETokenizer,
-    WordTokenizer,
-)
+from tokenizer_workshop.tokenizers.base import BaseTokenizer
 from tokenizer_workshop.utils import load_sample_texts
 
-TokenizerFactory = Callable[[], BaseTokenizer]
+# Bir tokenizer factory fonksiyonunun tip karşılığıdır.
+#
+# Neden doğrudan tokenizer instance değil factory kullanıyoruz?
+# Çünkü tokenizer'lar train() sonrası state tutabilir.
+# Örneğin:
+#   - vocabulary
+#   - merges
+#   - token_to_id / id_to_token
+#
+# Her evaluation için fresh instance üretmek state leakage riskini azaltır.
+TokenizerFactoryFn = Callable[[], BaseTokenizer]
 
 
 @dataclass(frozen=True)
 class ComparisonResult:
     """
-    Tek bir comparison run sonucunu temsil eder.
+    Tek bir tokenizer evaluation sonucunu temsil eder.
 
-    field'ler:
-    - label: Sonucun hangi compare grubuna ait olduğunu açıklar.
-    - metrics: İlgili tokenizer evaluation sonucu.
+    Bu model runner katmanının sade veri taşıyıcısıdır.
+
+    Attributes:
+        label:
+            Sonucun hangi tokenizer / sample / sweep grubuna ait olduğunu belirtir.
+
+            Örnek:
+                "word"
+                "byte_bpe_20_merges"
+                "regex | sample_en"
+
+        metrics:
+            evaluate_tokenizer(...) tarafından üretilen ölçüm sonucudur.
+
+            İçinde şunlar bulunabilir:
+                - token_count
+                - vocab_size
+                - compression ratio
+                - roundtrip sonucu
+                - latency / performance metrikleri
     """
 
     label: str
     metrics: TokenizationMetrics
 
 
-def build_default_tokenizer_factories(
-    simple_bpe_num_merges: int = 20,
-    byte_bpe_num_merges: int = 20,
-) -> list[tuple[str, TokenizerFactory]]:
+def build_default_tokenizer_factories() -> list[tuple[str, TokenizerFactoryFn]]:
     """
-    Projede kullandığımız varsayılan tokenizer factory listesini döndürür.
+    Varsayılan tokenizer factory listesini döndürür.
 
-    Neden instance değil de factory döndürüyoruz?
-    Çünkü her evaluation için temiz bir tokenizer instance üretmek istiyoruz.
-    Böylece state carry-over riskini azaltırız.
+    Bu fonksiyon artık tokenizer class'larını doğrudan import etmez.
+    Bunun yerine merkezi TokenizerFactory kullanır.
+
+    Eski yaklaşım:
+        from tokenizer_workshop.tokenizers import WordTokenizer
+        ("word", WordTokenizer)
+
+    Yeni yaklaşım:
+        ("word", lambda: TokenizerFactory.create("word"))
+
+    Bu değişiklik neden önemli?
+
+    - tokenizers/__init__.py içinde tokenizer class export etmeye gerek kalmaz.
+    - registry/discovery mimarisi korunur.
+    - yeni tokenizer eklendiğinde runner.py değiştirilmez.
+    - tokenizer oluşturma sorumluluğu tek noktaya taşınır.
+
+    Returns:
+        list[tuple[str, TokenizerFactoryFn]]:
+            Her eleman:
+                - label
+                - tokenizer üreten callable factory
     """
+    tokenizer_names = [
+        "char",
+        "byte",
+        "bpe",
+        "byte_bpe",
+        "word",
+        "regex",
+        "regex_bpe",
+    ]
+
+    # lambda içinde name=tokenizer_name kullanılmasının sebebi:
+    #
+    # Python closure davranışında döngü değişkeni late-binding ile yakalanır.
+    # Yani name=tokenizer_name yazmazsak tüm lambda'lar son değeri kullanabilir.
+    #
+    # Yanlış:
+    #   lambda: TokenizerFactory.create(tokenizer_name)
+    #
+    # Doğru:
+    #   lambda name=tokenizer_name: TokenizerFactory.create(name)
+    #
+    # Böylece her factory kendi tokenizer adını güvenli şekilde saklar.
     return [
-        ("char", CharTokenizer),
-        ("byte", ByteTokenizer),
         (
-            f"simple_bpe_{simple_bpe_num_merges}_merges",
-            lambda: SimpleBPETokenizer(num_merges=simple_bpe_num_merges),
-        ),
-        (
-            f"byte_bpe_{byte_bpe_num_merges}_merges", # Label, örneğin "byte_bpe_20_merges".
-            lambda: ByteBPETokenizer(num_merges=byte_bpe_num_merges), # Factory, örneğin lambda: ByteBPETokenizer(num_merges=20).
-        ),
-        ('word', WordTokenizer),
+            tokenizer_name,
+            lambda name=tokenizer_name: TokenizerFactory.create(name),
+        )
+        for tokenizer_name in tokenizer_names
     ]
 
 
 class TokenizerComparator:
-    def __init__(self, tokenizer_factories=None):
-        self.tokenizer_factories = tokenizer_factories or build_default_tokenizer_factories()
+    """
+    Sample text'ler üzerinde tokenizer karşılaştırmaları çalıştıran yardımcı sınıf.
 
-    def run_single_text(self, text, train_text=None):
-        if not text:
-            raise ValueError('Comparison text cannot be empty.')
+    Bu sınıf runner fonksiyonları için daha nesne odaklı bir kullanım sağlar.
 
-        results = []
-        for label, factory in self.tokenizer_factories:
-            tokenizer = factory()
-            metrics = evaluate_tokenizer(tokenizer=tokenizer, text=text, train_text=train_text)
-            results.append(ComparisonResult(label=label, metrics=metrics))
-        return results
+    Desteklediği senaryolar:
+        1. Aynı text üzerinde tüm tokenizer'ları çalıştırmak
+        2. Tüm sample text'ler üzerinde tüm tokenizer'ları çalıştırmak
+        3. Aynı tokenizer'ı farklı sample text'ler üzerinde çalıştırmak
+        4. BPE tokenizer'lar için farklı merge değerlerini karşılaştırmak
 
-    def run_all_samples(self):
-        sample_texts = load_sample_texts()
-        return {
-            name: self.run_single_text(text=text)
-            for name, text in sample_texts.items()
-        }
+    Not:
+        Bu sınıf comparison logic'i doğrudan kendi içinde büyütmez.
+        Asıl işi aşağıdaki fonksiyonlara delege eder.
+        Böylece hem fonksiyonel API hem de class-based API korunur.
+    """
 
-    def run_across_samples(self, tokenizer_factory, tokenizer_label):
-        sample_texts = load_sample_texts()
-        results = []
-        for sample_name, text in sample_texts.items():
-            tokenizer = tokenizer_factory()
-            metrics = evaluate_tokenizer(tokenizer=tokenizer, text=text)
-            results.append(ComparisonResult(label=f"{tokenizer_label} | {sample_name}", metrics=metrics))
-        return results
+    def __init__(
+        self,
+        tokenizer_factories: list[tuple[str, TokenizerFactoryFn]] | None = None,
+    ) -> None:
+        """
+        TokenizerComparator instance oluşturur.
 
-    def run_simple_bpe_sweep(self, text, merge_values, train_text=None):
-        if not text: raise ValueError('Comparison text cannot be empty.')
-        if not merge_values: raise ValueError('merge_values cannot be empty.')
-        return [
-            ComparisonResult(label=f'simple_bpe_{n}_merges', metrics=evaluate_tokenizer(tokenizer=SimpleBPETokenizer(num_merges=n), text=text, train_text=train_text))
-            for n in merge_values
-        ]
+        Args:
+            tokenizer_factories:
+                Dışarıdan özel tokenizer factory listesi verilebilir.
 
-    def run_byte_bpe_sweep(self, text, merge_values, train_text=None):
-        if not text: raise ValueError('Comparison text cannot be empty.')
-        if not merge_values: raise ValueError('merge_values cannot be empty.')
-        return [
-            ComparisonResult(label=f'byte_bpe_{n}_merges', metrics=evaluate_tokenizer(tokenizer=ByteBPETokenizer(num_merges=n), text=text, train_text=train_text))
-            for n in merge_values
-        ]
+                Eğer verilmezse build_default_tokenizer_factories() kullanılır.
+
+        Neden opsiyonel?
+            Testlerde veya özel benchmark senaryolarında sadece belirli
+            tokenizer'ları çalıştırmak isteyebiliriz.
+        """
+        self.tokenizer_factories = (
+            tokenizer_factories or build_default_tokenizer_factories()
+        )
+
+    def run_single_text(
+        self,
+        text: str,
+        train_text: str | None = None,
+    ) -> list[ComparisonResult]:
+        """
+        Aynı text üzerinde tüm tokenizer'ları çalıştırır.
+
+        Args:
+            text:
+                Evaluation yapılacak metin.
+
+            train_text:
+                Opsiyonel eğitim metni.
+                Verilmezse evaluate_tokenizer genellikle text'i training text olarak kullanır.
+
+        Returns:
+            list[ComparisonResult]:
+                Her tokenizer için bir evaluation sonucu.
+        """
+        return run_same_text_across_tokenizers(
+            text=text,
+            tokenizer_factories=self.tokenizer_factories,
+            train_text=train_text,
+        )
+
+    def run_all_samples(self) -> dict[str, list[ComparisonResult]]:
+        """
+        config üzerinden yüklenen tüm sample text'lerde tüm tokenizer'ları çalıştırır.
+
+        Returns:
+            dict[str, list[ComparisonResult]]:
+                Key:
+                    sample adı
+
+                Value:
+                    ilgili sample üzerinde üretilmiş tokenizer sonuçları
+        """
+        return run_all_samples_across_tokenizers(
+            tokenizer_factories=self.tokenizer_factories,
+        )
+
+    def run_across_samples(
+        self,
+        tokenizer_factory: TokenizerFactoryFn,
+        tokenizer_label: str,
+    ) -> list[ComparisonResult]:
+        """
+        Aynı tokenizer'ı tüm sample text'ler üzerinde çalıştırır.
+
+        Bu analiz şu soruya cevap verir:
+            "Aynı tokenizer farklı metin türlerinde nasıl davranıyor?"
+
+        Örnek:
+            ByteTokenizer Türkçe, İngilizce ve emoji içeren metinlerde
+            nasıl token sayısı üretiyor?
+        """
+        return run_same_tokenizer_across_samples(
+            tokenizer_factory=tokenizer_factory,
+            tokenizer_label=tokenizer_label,
+        )
+
+    def run_simple_bpe_sweep(
+        self,
+        text: str,
+        merge_values: list[int],
+        train_text: str | None = None,
+    ) -> list[ComparisonResult]:
+        """
+        Simple BPE için farklı num_merges değerlerini karşılaştırır.
+
+        Bu analiz şu soruya cevap verir:
+            "Merge sayısı arttıkça token sayısı ve compression nasıl değişiyor?"
+        """
+        return run_bpe_merge_sweep(
+            text=text,
+            merge_values=merge_values,
+            tokenizer_name="bpe",
+            label_prefix="simple_bpe",
+            train_text=train_text,
+        )
+
+    def run_byte_bpe_sweep(
+        self,
+        text: str,
+        merge_values: list[int],
+        train_text: str | None = None,
+    ) -> list[ComparisonResult]:
+        """
+        Byte BPE için farklı num_merges değerlerini karşılaştırır.
+
+        Byte-level BPE, UTF-8 byte seviyesinde çalıştığı için özellikle:
+            - Türkçe karakterler
+            - emoji
+            - multilingual input
+            - unseen character senaryoları
+
+        üzerinde anlamlı karşılaştırmalar sağlar.
+        """
+        return run_bpe_merge_sweep(
+            text=text,
+            merge_values=merge_values,
+            tokenizer_name="byte_bpe",
+            label_prefix="byte_bpe",
+            train_text=train_text,
+        )
 
 
 def run_same_text_across_tokenizers(
-        text: str,
-        tokenizer_factories: list[tuple[str, TokenizerFactory]] | None = None,
-        train_text: str | None = None,
+    text: str,
+    tokenizer_factories: list[tuple[str, TokenizerFactoryFn]] | None = None,
+    train_text: str | None = None,
 ) -> list[ComparisonResult]:
     """
     Aynı text üzerinde birden fazla tokenizer'ı karşılaştırır.
 
     Bu compare tipi şu soruya cevap verir:
-    "Aynı input, farklı tokenizer'larda nasıl davranıyor?"
+        "Aynı input, farklı tokenizer stratejilerinde nasıl davranıyor?"
+
+    Örnek:
+        "Hello world!" input'u:
+            - char tokenizer'da çok fazla küçük token üretir
+            - word tokenizer'da daha az token üretir
+            - byte_bpe tokenizer'da subword/byte merge davranışı gösterir
+
+    Args:
+        text:
+            Karşılaştırılacak kaynak metin.
+
+        tokenizer_factories:
+            Opsiyonel tokenizer factory listesi.
+            Verilmezse default tokenizer set'i kullanılır.
+
+        train_text:
+            Opsiyonel eğitim metni.
+            Bazı tokenizer'lar training gerektirir.
+
+    Returns:
+        list[ComparisonResult]:
+            Her tokenizer için evaluation sonucu.
     """
-    if not text:
-        raise ValueError("Comparison text cannot be empty.")
+    _validate_text(text)
 
     factories = tokenizer_factories or build_default_tokenizer_factories()
     results: list[ComparisonResult] = []
 
     for label, factory in factories:
         tokenizer = factory()
+
         metrics = evaluate_tokenizer(
             tokenizer=tokenizer,
             text=text,
             train_text=train_text,
         )
-        results.append(ComparisonResult(label=label, metrics=metrics))
 
-    return results
-
-
-def run_all_samples_across_tokenizers(
-        tokenizer_factories: list[tuple[str, TokenizerFactory]] | None = None,
-) -> dict[str, list[ComparisonResult]]:
-    """
-    config.yaml içinde tanımlı tüm sample text'ler üzerinde
-    aynı-text-across-tokenizers compare çalıştırır.
-
-    Dönüş formatı:
-        {
-            "data/sample_tr.txt": [...],
-            "data/sample_en.txt": [...],
-            ...
-        }
-    """
-    sample_texts = load_sample_texts()
-    all_results: dict[str, list[ComparisonResult]] = {}
-
-    for sample_name, text in sample_texts.items():
-        all_results[sample_name] = run_same_text_across_tokenizers(
-            text=text,
-            tokenizer_factories=tokenizer_factories,
-        )
-
-    return all_results
-
-
-def run_same_tokenizer_across_samples(
-        tokenizer_factory: TokenizerFactory,
-        tokenizer_label: str,
-) -> list[ComparisonResult]:
-    """
-    Aynı tokenizer'ı farklı sample text'ler üzerinde çalıştırır.
-
-    Bu compare tipi şu soruya cevap verir:
-    "Aynı tokenizer, farklı text türlerinde nasıl davranıyor?"
-    """
-    sample_texts = load_sample_texts()
-    results: list[ComparisonResult] = []
-
-    for sample_name, text in sample_texts.items():
-        tokenizer = tokenizer_factory()
-        metrics = evaluate_tokenizer(
-            tokenizer=tokenizer,
-            text=text,
-        )
-        results.append(ComparisonResult(label=f"{tokenizer_label} | {sample_name}", metrics=metrics))
-
-    return results
-
-
-def run_simple_bpe_merge_sweep(
-        text: str,
-        merge_values: list[int],
-        train_text: str | None = None,
-) -> list[ComparisonResult]:
-    """
-    Aynı text üzerinde farklı num_merges değerleri ile
-    SimpleBPETokenizer compare çalıştırır.
-
-    Bu compare tipi şu soruya cevap verir:
-    "num_merges değiştikçe tokenization davranışı nasıl değişiyor?"
-    """
-    if not text:
-        raise ValueError("Comparison text cannot be empty.")
-
-    if not merge_values:
-        raise ValueError("merge_values cannot be empty.")
-
-    results: list[ComparisonResult] = []
-
-    for num_merges in merge_values:
-        tokenizer = SimpleBPETokenizer(num_merges=num_merges)
-        metrics = evaluate_tokenizer(
-            tokenizer=tokenizer,
-            text=text,
-            train_text=train_text,
-        )
         results.append(
             ComparisonResult(
-                label=f"simple_bpe_{num_merges}_merges",
+                label=label,
                 metrics=metrics,
             )
         )
@@ -221,50 +314,240 @@ def run_simple_bpe_merge_sweep(
     return results
 
 
-def run_byte_bpe_merge_sweep(
-        text: str,  # Karşılaştırma için kullanılacak metin.
-        merge_values: list[int],  # Karşılaştırma için kullanılacak num_merges değerleri listesi.
-        train_text: str | None = None,  # Opsiyonel olarak training metni; verilmezse text kullanılır.
-) -> list[ComparisonResult]:
+def run_all_samples_across_tokenizers(
+    tokenizer_factories: list[tuple[str, TokenizerFactoryFn]] | None = None,
+) -> dict[str, list[ComparisonResult]]:
     """
-    Aynı text üzerinde farklı num_merges değerleri ile
-    ByteBPETokenizer compare çalıştırır.
+    Tüm sample text'ler üzerinde tokenizer karşılaştırması çalıştırır.
+
+    config.yaml veya utility layer üzerinden gelen sample text'ler kullanılır.
+
+    Dönüş formatı:
+        {
+            "sample_tr": [ComparisonResult, ...],
+            "sample_en": [ComparisonResult, ...],
+        }
 
     Bu compare tipi şu soruya cevap verir:
-    "num_merges değiştikçe tokenization davranışı nasıl değişiyor?"
+        "Tokenizer'lar farklı veri örneklerinde tutarlı davranıyor mu?"
     """
-    # Bu fonksiyon, run_simple_bpe_merge_sweep ile benzer şekilde çalışır ancak ByteBPETokenizer'ı kullanır.
-    # Byte-level BPE'nin davranışı, karakter-level BPE'den farklı olabilir çünkü byte'lar karakterlerden daha düşük seviyeli birimlerdir.
+    sample_texts = load_sample_texts()
 
-    # run_simple_bpe_merge_sweep fonksiyonunda olduğu gibi, her num_merges değeri için yeni bir ByteBPETokenizer instance'ı oluşturulur ve evaluate edilir.
-    # Sonuçlar, num_merges değerine göre etiketlenmiş ComparisonResult instance'ları olarak saklanır ve döndürülür.
+    return {
+        sample_name: run_same_text_across_tokenizers(
+            text=text,
+            tokenizer_factories=tokenizer_factories,
+        )
+        for sample_name, text in sample_texts.items()
+    }
 
-    # Bu fonksiyon, ByteBPETokenizer'ın num_merges parametresinin tokenization performansı üzerindeki etkisini anlamak isteyenler için yararlı olabilir.
-    # Byte-level BPE'nin karakter-level BPE'ye göre farklı bir tokenization davranışı sergileyebileceği göz önünde bulundurularak, bu karşılaştırma, num_merges parametresinin etkisini daha iyi anlamamıza yardımcı olabilir.
-    # Ayrıca, bu fonksiyon, ByteBPETokenizer'ın farklı num_merges değerleriyle nasıl performans gösterdiğini görselleştirmek veya raporlamak isteyenler için de kullanılabilir.
 
-    if not text:  # Karşılaştırma için kullanılacak metnin boş olup olmadığını kontrol eder.
-        raise ValueError("Comparison text cannot be empty.")
+def run_same_tokenizer_across_samples(
+    tokenizer_factory: TokenizerFactoryFn,
+    tokenizer_label: str,
+) -> list[ComparisonResult]:
+    """
+    Aynı tokenizer'ı farklı sample text'ler üzerinde çalıştırır.
 
-    if not merge_values:  # Karşılaştırma için kullanılacak merge_values listesinin boş olup olmadığını kontrol eder.
-        raise ValueError("merge_values cannot be empty.")
+    Bu compare tipi şu soruya cevap verir:
+        "Aynı tokenizer farklı metin türlerinde nasıl performans gösteriyor?"
 
-    results: list[ComparisonResult] = []  # Sonuçları saklamak için boş bir liste oluşturur.
+    Örneğin:
+        - Türkçe text
+        - İngilizce text
+        - emoji içeren text
+        - teknik text
 
-    for num_merges in merge_values:  # merge_values listesindeki her num_merges değeri için döngü başlatır.
-        tokenizer = ByteBPETokenizer(
-            num_merges=num_merges)  # Her num_merges değeri için yeni bir ByteBPETokenizer instance'ı oluşturur.
+    üzerinde aynı tokenizer'ın token_count, compression ve roundtrip davranışı
+    karşılaştırılabilir.
+    """
+    sample_texts = load_sample_texts()
+    results: list[ComparisonResult] = []
+
+    for sample_name, text in sample_texts.items():
+        tokenizer = tokenizer_factory()
+
         metrics = evaluate_tokenizer(
-            tokenizer=tokenizer,  # Tokenizer'ı evaluate ederken kullanacağı tokenizer instance'ını belirtir.
-            text=text,  # Evaluate edilecek metni belirtir.
-            train_text=train_text,  # Opsiyonel olarak training metnini belirtir; verilmezse text kullanılır.
-        )  # Tokenizer'ı evaluate eder ve sonuçları metrics değişkenine atar.
+            tokenizer=tokenizer,
+            text=text,
+        )
+
         results.append(
             ComparisonResult(
-                label=f"byte_bpe_{num_merges}_merges",
-                # Sonuç için açıklayıcı bir label oluşturur, örneğin "byte_bpe_20_merges".
-                metrics=metrics,  # Evaluate edilen metrikleri belirtir.
-            )  # ComparisonResult instance'ı oluşturur ve results listesine ekler.
-        )  # Tüm merge_values için bu işlemi tekrarlar ve sonunda results listesini döndürür.
+                label=f"{tokenizer_label} | {sample_name}",
+                metrics=metrics,
+            )
+        )
 
     return results
+
+
+def run_simple_bpe_merge_sweep(
+    text: str,
+    merge_values: list[int],
+    train_text: str | None = None,
+) -> list[ComparisonResult]:
+    """
+    Backward-compatible Simple BPE sweep fonksiyonu.
+
+    Eski kullanım bozulmasın diye korunur.
+    İçeride generic run_bpe_merge_sweep(...) fonksiyonunu kullanır.
+    """
+    return run_bpe_merge_sweep(
+        text=text,
+        merge_values=merge_values,
+        tokenizer_name="bpe",
+        label_prefix="simple_bpe",
+        train_text=train_text,
+    )
+
+
+def run_byte_bpe_merge_sweep(
+    text: str,
+    merge_values: list[int],
+    train_text: str | None = None,
+) -> list[ComparisonResult]:
+    """
+    Backward-compatible Byte BPE sweep fonksiyonu.
+
+    Eski kullanım bozulmasın diye korunur.
+    İçeride generic run_bpe_merge_sweep(...) fonksiyonunu kullanır.
+    """
+    return run_bpe_merge_sweep(
+        text=text,
+        merge_values=merge_values,
+        tokenizer_name="byte_bpe",
+        label_prefix="byte_bpe",
+        train_text=train_text,
+    )
+
+
+def run_bpe_merge_sweep(
+    text: str,
+    merge_values: list[int],
+    tokenizer_name: str,
+    label_prefix: str,
+    train_text: str | None = None,
+) -> list[ComparisonResult]:
+    """
+    BPE tabanlı tokenizer'lar için farklı merge değerlerini karşılaştırır.
+
+    Bu fonksiyon generic yapıdadır.
+    Hem SimpleBPE hem ByteBPE için kullanılabilir.
+
+    Args:
+        text:
+            Evaluation yapılacak metin.
+
+        merge_values:
+            Denenecek num_merges değerleri.
+
+            Örnek:
+                [1, 5, 10, 20]
+
+        tokenizer_name:
+            TokenizerFactory üzerinden üretilecek tokenizer adı.
+
+            Örnek:
+                "bpe"
+                "byte_bpe"
+
+        label_prefix:
+            Raporlarda kullanılacak label prefix.
+
+            Örnek:
+                "simple_bpe"
+                "byte_bpe"
+
+        train_text:
+            Opsiyonel eğitim metni.
+
+    Returns:
+        list[ComparisonResult]:
+            Her merge değeri için evaluation sonucu.
+
+    Not:
+        Tokenizer constructor num_merges destekliyorsa parametreli üretilir.
+        Desteklemiyorsa default factory creation'a fallback yapılır.
+    """
+    _validate_text(text)
+
+    if not merge_values:
+        raise ValueError("merge_values cannot be empty.")
+
+    results: list[ComparisonResult] = []
+
+    for num_merges in merge_values:
+        tokenizer = _create_tokenizer_with_optional_num_merges(
+            tokenizer_name=tokenizer_name,
+            num_merges=num_merges,
+        )
+
+        metrics = evaluate_tokenizer(
+            tokenizer=tokenizer,
+            text=text,
+            train_text=train_text,
+        )
+
+        results.append(
+            ComparisonResult(
+                label=f"{label_prefix}_{num_merges}_merges",
+                metrics=metrics,
+            )
+        )
+
+    return results
+
+
+def _create_tokenizer_with_optional_num_merges(
+    tokenizer_name: str,
+    num_merges: int,
+) -> BaseTokenizer:
+    """
+    num_merges destekleyen tokenizer'lar için parametreli instance üretir.
+
+    Neden gerekli?
+        TokenizerFactory.create("byte_bpe") default constructor kullanır.
+        Ancak sweep testlerinde farklı num_merges değerleri denenmelidir.
+
+    Bu helper:
+        1. Registry üzerinden tokenizer instance'larını alır.
+        2. İlgili tokenizer'ın class bilgisini çıkarır.
+        3. Constructor num_merges kabul ediyorsa parametreli instance üretir.
+        4. Kabul etmiyorsa default TokenizerFactory.create(...) akışına döner.
+
+    Bu sayede:
+        - factory/discovery mimarisi bozulmaz
+        - BPE sweep esnekliği korunur
+        - non-BPE tokenizer'lar yanlışlıkla num_merges ile kırılmaz
+    """
+    registry = TokenizerFactory.get_registry()
+
+    if tokenizer_name not in registry:
+        return TokenizerFactory.create(tokenizer_name)
+
+    tokenizer_or_class = registry[tokenizer_name]
+
+    # get_registry() şu an instance döndürüyor.
+    # Eğer ileride class döndürecek şekilde değişirse bu kod onu da destekler.
+    tokenizer_cls = (
+        tokenizer_or_class.__class__
+        if not isinstance(tokenizer_or_class, type)
+        else tokenizer_or_class
+    )
+
+    try:
+        return tokenizer_cls(num_merges=num_merges)
+    except TypeError:
+        return TokenizerFactory.create(tokenizer_name)
+
+
+def _validate_text(text: str) -> None:
+    """
+    Compare edilecek text'in boş olmadığını doğrular.
+
+    Boş veya sadece whitespace içeren text ile evaluation yapmak anlamlı değildir.
+    Bu yüzden erken hata verilir.
+    """
+    if not text or not text.strip():
+        raise ValueError("Comparison text cannot be empty.")

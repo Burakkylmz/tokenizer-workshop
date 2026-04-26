@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from tokenizer_workshop.tokenizers.base import BaseTokenizer
+from tokenizer_workshop.tokenizers.registry import register_tokenizer
 from tokenizer_workshop.trainers import BPETrainer, MergeStep
 
 
+@register_tokenizer("bpe")
+@register_tokenizer("simple_bpe")
 class SimpleBPETokenizer(BaseTokenizer):
     """
     Basit bir character-based BPE tokenizer.

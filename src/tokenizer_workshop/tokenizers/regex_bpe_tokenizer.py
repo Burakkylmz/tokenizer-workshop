@@ -1,5 +1,9 @@
-import re 
+import re
 from collections import defaultdict
+
+from tokenizer_workshop.tokenizers.base import BaseTokenizer
+from tokenizer_workshop.tokenizers.registry import register_tokenizer
+
 
 # Metni parçalara bölmek için regex pattern
 # [a-zA-Z...]+ → kelimeler
@@ -8,8 +12,9 @@ from collections import defaultdict
 # \s+          → boşluklar
 SIMPLE_PATTERN = r"[a-zA-ZğüşıöçĞÜŞİÖÇə]+|\d+|[^\s\w]+|\s+"
 
-class RegexBPETokenizer:
 
+@register_tokenizer("regex_bpe")
+class RegexBPETokenizer(BaseTokenizer):
     def __init__(self, pattern: str = SIMPLE_PATTERN):
         # Kullanıcı pattern vermezse SIMPLE_PATTERN kullanılır
         self.pattern = pattern
@@ -208,3 +213,9 @@ class RegexBPETokenizer:
     # len(merges) → kural sayısı
         return len(self.merges)
     
+    @property
+    def vocab_size(self) -> int:
+        """
+        Mevcut vocabulary boyutunu döndürür.
+        """
+        return len(self.vocab)
