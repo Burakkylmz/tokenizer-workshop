@@ -356,11 +356,17 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
         elif name == "char":
             lines.append("• char      : best for debugging and maximum granularity")
 
+        elif name == "regex":
+            lines.append("• regex     : best for custom tokenization patterns and domain-specific text")
+
         elif name == "byte_bpe":
             lines.append("• byte_bpe  : best for handling complex or unseen text")
 
         elif name == "bpe":
             lines.append("• bpe       : balanced option between compression and flexibility")
+
+        elif name == "regex_bpe":
+            lines.append("• regex_bpe : best for custom tokenization patterns and domain-specific text")
 
     lines.extend(
         [
@@ -370,6 +376,7 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• Word-level tokenization is compact but language-dependent.",
             "• Subword/BPE tokenization balances flexibility and compression.",
             "• Byte-level tokenization ensures full coverage of any input.",
+            "• Regex-based tokenization allows for custom patterns and domain-specific text handling.",
             "",
         ]
     )

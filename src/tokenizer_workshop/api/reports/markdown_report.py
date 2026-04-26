@@ -14,6 +14,7 @@ from .helpers import (
     utc_now_iso,
     is_reconstruction_match,
     normalize_text,
+    wide_hr,
 )
 
 
@@ -338,10 +339,11 @@ def _append_interpretation(lines: list[str], results: list[dict[str, Any]]) -> N
 
 
 def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> None:
-    lines.extend(["RECOMMENDATION", wide_hr("-")])
+    lines.extend(["## Recommendation", ""])
 
     if not results:
-        lines.extend(["No recommendation available.", ""])
+        lines.append("No tokenizer results are available for recommendation.")
+        lines.append("")
         return
 
     best_efficiency = _best_by_metric(results, "efficiency_score", reverse=True)
@@ -377,11 +379,17 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
         elif name == "char":
             lines.append("• char      : best for debugging and maximum granularity")
 
+        elif name == "regex":
+            lines.append("• regex     : best for custom tokenization patterns and domain-specific text")
+
         elif name == "byte_bpe":
             lines.append("• byte_bpe  : best for handling complex or unseen text")
 
         elif name == "bpe":
             lines.append("• bpe       : balanced option between compression and flexibility")
+
+        elif name == "regex_bpe":
+            lines.append("• regex_bpe : best for custom tokenization patterns and domain-specific text")
 
     lines.extend(
         [
@@ -391,6 +399,7 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• Word-level tokenization is compact but language-dependent.",
             "• Subword/BPE tokenization balances flexibility and compression.",
             "• Byte-level tokenization ensures full coverage of any input.",
+            "• Regex-based tokenization allows for custom patterns and domain-specific text handling.",
             "",
         ]
     )

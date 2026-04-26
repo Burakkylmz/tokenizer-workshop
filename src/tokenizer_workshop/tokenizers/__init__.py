@@ -13,5 +13,6 @@ __all__ = [
     "ByteBPETokenizer",
     "SimpleBPETokenizer",
     'WordTokenizer',
+    'RegexTokenizer',
     "RegexBPETokenizer",
 ]

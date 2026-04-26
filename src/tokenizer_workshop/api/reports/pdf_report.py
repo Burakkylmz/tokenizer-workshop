@@ -213,6 +213,8 @@ def build_pdf_report(data: dict[str, Any], output_path: str | Path) -> Path:
         "char": "Best for debugging and maximum granularity",
         "bpe": "Balanced option between compression and flexibility",
         "byte_bpe": "Best for handling complex or unseen text",
+        "regex": "Best for custom tokenization patterns and domain-specific text",
+        "regex_bpe": "Best for custom tokenization patterns and domain-specific text",
     }
 
     for item in results:

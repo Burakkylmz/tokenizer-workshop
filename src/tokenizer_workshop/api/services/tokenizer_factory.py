@@ -8,12 +8,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from tokenizer_workshop.tokenizers.registry import TokenizerRegistry
+from tokenizer_workshop.tokenizers.discovery import auto_import_tokenizers
+
 from tokenizer_workshop.api.services.exceptions import UnsupportedTokenizerError
 from tokenizer_workshop.tokenizers.byte_bpe_tokenizer import ByteBPETokenizer
 from tokenizer_workshop.tokenizers.byte_tokenizer import ByteTokenizer
 from tokenizer_workshop.tokenizers.char_tokenizer import CharTokenizer
 from tokenizer_workshop.tokenizers.simple_bpe_tokenizer import SimpleBPETokenizer
 from tokenizer_workshop.tokenizers.word_tokenizer import WordTokenizer
+from tokenizer_workshop.tokenizers.regex_tokenizer import RegexTokenizer
+from tokenizer_workshop.tokenizers.regex_bpe_tokenizer import RegexBPETokenizer
+
 
 
 class TokenizerFactory:
@@ -32,6 +38,8 @@ class TokenizerFactory:
             "bpe": SimpleBPETokenizer(),
             "byte_bpe": ByteBPETokenizer(),
             "word": WordTokenizer(),
+            "regex": RegexTokenizer(),
+            "regex_bpe": RegexBPETokenizer(),
         }
 
     @staticmethod

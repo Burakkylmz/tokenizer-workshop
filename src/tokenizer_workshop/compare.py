@@ -9,6 +9,8 @@ from tokenizer_workshop.tokenizers.word_tokenizer import WordTokenizer
 from tokenizer_workshop.tokenizers.char_tokenizer import CharTokenizer
 from tokenizer_workshop.tokenizers.byte_tokenizer import ByteTokenizer
 from tokenizer_workshop.tokenizers.byte_bpe_tokenizer import ByteBPETokenizer
+from tokenizer_workshop.tokenizers.regex_tokenizer import RegexTokenizer
+from tokenizer_workshop.tokenizers.regex_bpe_tokenizer import RegexBPETokenizer
 
 
 # ============================================================
@@ -50,6 +52,8 @@ def build_tokenizers():
             "char": CharTokenizer(),
             "byte": ByteTokenizer(),
             "byte_bpe": ByteBPETokenizer(num_merges=10),
+            "regex": RegexTokenizer(),
+            "regex_bpe": RegexBPETokenizer(num_merges=10),
         }
     """
     return {
@@ -57,6 +61,8 @@ def build_tokenizers():
         "char": CharTokenizer(),
         "byte": ByteTokenizer(),
         "byte_bpe": ByteBPETokenizer(num_merges=10),
+        "regex": RegexTokenizer(),
+        "regex_bpe": RegexBPETokenizer(),
     }
 
 

@@ -75,7 +75,7 @@ class RegexBPETokenizer:
             # vocab[256] = b's' + b'a' = b'sa'
             self.vocab[idx] = self.vocab[p0] + self.vocab[p1]
     
-    def train(self, text: str, vocab_size: int) -> None:
+    def train(self, text: str, vocab_size: int = 300) -> None:
     # vocab_size 256'dan küçükse hata ver
     # Çünkü 0-255 byte tokenları her zaman olmalıdır
         if vocab_size < 256:
@@ -165,6 +165,19 @@ class RegexBPETokenizer:
     
     # Tüm parçaların id'lerini döndür
         return all_ids
+
+    
+    def tokenize(self, text: str) -> list[str]:
+        "'Metni token id'lerine dönüştürür ve string olarak döndürür."
+        if not text or not text.strip():
+            return []
+
+        if not getattr(self, "merges", None):
+            self.train(text)
+
+        token_ids = self.encode(text)
+
+        return [str(token_id) for token_id in token_ids]
     
     def decode(self, ids: list[int]) -> str:
     # Train edilmeden decode çağrılırsa hata ver
