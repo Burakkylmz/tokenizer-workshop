@@ -215,6 +215,7 @@ def build_pdf_report(data: dict[str, Any], output_path: str | Path) -> Path:
         "byte_bpe": "Best for handling complex or unseen text",
         "regex": "Best for custom tokenization patterns and domain-specific text",
         "regex_bpe": "Best for custom tokenization patterns and domain-specific text",
+        "ngram": "Best for capturing local context and multi-word expressions",
     }
 
     for item in results:

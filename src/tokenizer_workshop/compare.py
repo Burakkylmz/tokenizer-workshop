@@ -1,16 +1,23 @@
 from __future__ import annotations
 
-# Compare işlemlerini yöneten ana sınıf
-# Tüm karşılaştırma mantığı bu sınıf içinde yer alır
+"""
+compare.py
+
+Uygulamanın CLI entry point'i.
+
+Bu dosya intentionally thin tutulur:
+- İş mantığı burada olmaz
+- Orchestration burada olur
+- Asıl logic CompareManager + services katmanındadır
+
+Yeni mimari:
+    TokenizerFactory → Registry → Discovery → Tokenizer
+"""
+
 from tokenizer_workshop.comparisons.compare_manager import CompareManager
 
-# Karşılaştırmada kullanılacak örnek tokenizer'lar
-from tokenizer_workshop.tokenizers.word_tokenizer import WordTokenizer
-from tokenizer_workshop.tokenizers.char_tokenizer import CharTokenizer
-from tokenizer_workshop.tokenizers.byte_tokenizer import ByteTokenizer
-from tokenizer_workshop.tokenizers.byte_bpe_tokenizer import ByteBPETokenizer
-from tokenizer_workshop.tokenizers.regex_tokenizer import RegexTokenizer
-from tokenizer_workshop.tokenizers.regex_bpe_tokenizer import RegexBPETokenizer
+from tokenizer_workshop.tokenizers.base import BaseTokenizer
+from tokenizer_workshop.api.services.tokenizer_factory import TokenizerFactory
 
 
 # ============================================================
@@ -33,37 +40,30 @@ COMPARE_TEXT = "Hello world! Tokenization is fun."
 # HELPER FUNCTIONS
 # ============================================================
 
-def build_tokenizers():
+TOKENIZER_CONFIG = {
+    "word": {},
+    "char": {},
+    "byte": {},
+    "byte_bpe": {"num_merges": 10},
+    "simple_bpe": {"num_merges": 10},
+    "regex": {},
+    "regex_bpe": {},
+    "ngram": {"n": 2},
+}
+
+
+def build_tokenizers() -> dict[str, BaseTokenizer]:
     """
-    Karşılaştırmada kullanılacak tüm tokenizer nesnelerini oluşturur.
+    Karşılaştırmada kullanılacak tokenizer instance'larını üretir.
 
-    Bu fonksiyonun amacı:
-    - tokenizer oluşturma mantığını main() içinden çıkarmak
-    - yeni tokenizer eklemeyi kolaylaştırmak
-    - compare.py dosyasını daha sade hale getirmek
-
-    Returns:
-        dict[str, object]:
-            Tokenizer adı -> tokenizer nesnesi eşleşmesi
-
-    Örnek çıktı:
-        {
-            "word": WordTokenizer(),
-            "char": CharTokenizer(),
-            "byte": ByteTokenizer(),
-            "byte_bpe": ByteBPETokenizer(num_merges=10),
-            "regex": RegexTokenizer(),
-            "regex_bpe": RegexBPETokenizer(num_merges=10),
-        }
+    Yeni tokenizer eklemek için sadece TOKENIZER_CONFIG'e ekleme yapmak yeterlidir.
     """
+
     return {
-        "word": WordTokenizer(),
-        "char": CharTokenizer(),
-        "byte": ByteTokenizer(),
-        "byte_bpe": ByteBPETokenizer(num_merges=10),
-        "regex": RegexTokenizer(),
-        "regex_bpe": RegexBPETokenizer(),
+        name: TokenizerFactory.create(name, **config)
+        for name, config in TOKENIZER_CONFIG.items()
     }
+
 
 
 # ============================================================

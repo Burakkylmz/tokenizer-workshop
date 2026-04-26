@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tokenizer_workshop.tokenizers.regex_tokenizer import RegexTokenizer
+from tokenizer_workshop.api.services.tokenizer_factory import TokenizerFactory
 
 
 # ---------------------------------------------------------
@@ -25,7 +25,7 @@ def test_regex_tokenizer_train_builds_vocab() -> None:
     Beklenen vocab_size:
         3
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
 
     tokenizer.train("Hello world! Hello")
 
@@ -48,7 +48,7 @@ def test_regex_tokenizer_vocab_size_reflects_unique_regex_tokens() -> None:
     Beklenen vocab_size:
         4
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
 
     tokenizer.train("one two two three!")
 
@@ -67,8 +67,8 @@ def test_regex_tokenizer_vocab_is_deterministic_for_same_input() -> None:
 
     her çalıştırmada aynı token-id eşleşmesini üretmelidir.
     """
-    tokenizer_a = RegexTokenizer()
-    tokenizer_b = RegexTokenizer()
+    tokenizer_a = TokenizerFactory.create("regex")
+    tokenizer_b = TokenizerFactory.create("regex")
 
     text = "elma armut kiraz elma"
 
@@ -94,7 +94,7 @@ def test_regex_tokenizer_tokenize_splits_words_and_punctuation() -> None:
     Beklenen çıktı:
         ["Hello", "world", "!"]
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
 
     tokens = tokenizer.tokenize("Hello world!")
 
@@ -112,7 +112,7 @@ def test_regex_tokenizer_punctuation_is_separate_token() -> None:
     Beklenen çıktı:
         ["Merhaba", ",", "dünya", "!"]
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
     text = "Merhaba, dünya!"
 
     tokenizer.train(text)
@@ -133,7 +133,7 @@ def test_regex_tokenizer_handles_turkish_characters() -> None:
 
     tek kelime tokenı olarak yakalanmalıdır.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
     text = "Merhaba dünya!"
 
     tokenizer.train(text)
@@ -148,7 +148,7 @@ def test_regex_tokenizer_tokenize_empty_string_returns_empty_list() -> None:
 
     Bu davranış API/report tarafında daha güvenli çalışmayı sağlar.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
 
     assert tokenizer.tokenize("") == []
 
@@ -160,7 +160,7 @@ def test_regex_tokenizer_tokenize_whitespace_only_returns_empty_list() -> None:
     Örnek:
         "   " -> []
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
 
     assert tokenizer.tokenize("   ") == []
 
@@ -184,7 +184,7 @@ def test_regex_tokenizer_supports_custom_pattern() -> None:
         "!"  punctuation olduğu için yakalanmaz
         "123" sayı olduğu için yakalanmaz
     """
-    tokenizer = RegexTokenizer(pattern=r"[A-Za-z]+")
+    tokenizer = TokenizerFactory.create("regex", pattern=r"[A-Za-z]+")
 
     tokens = tokenizer.tokenize("Hello, world! 123")
 
@@ -210,7 +210,7 @@ def test_regex_tokenizer_encode_returns_integer_token_ids() -> None:
         - listedeki tüm elemanlar int olmalı
         - token sayısı 3 olmalı
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
     tokenizer.train("Hello world!")
 
     encoded = tokenizer.encode("Hello world!")
@@ -226,7 +226,7 @@ def test_regex_tokenizer_encode_before_training_raises_error() -> None:
 
     Çünkü encode() token_to_id vocabulary mapping'ine ihtiyaç duyar.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
 
     with pytest.raises(ValueError, match="Tokenizer has not been trained yet"):
         tokenizer.encode("Hello")
@@ -244,7 +244,7 @@ def test_regex_tokenizer_encode_unknown_token_raises_error() -> None:
 
     "unknown" vocabulary içinde olmadığı için OOV hatası beklenir.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
     tokenizer.train("Hello world")
 
     with pytest.raises(ValueError, match="Unknown token"):
@@ -273,7 +273,7 @@ def test_regex_tokenizer_decode_reconstructs_readable_text() -> None:
         Fakat noktalama işaretlerinden önceki gereksiz boşlukları temizlediği için
         bu örnekte birebir roundtrip sağlanır.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
     tokenizer.train("Hello world!")
 
     encoded = tokenizer.encode("Hello world!")
@@ -288,7 +288,7 @@ def test_regex_tokenizer_encode_decode_roundtrip() -> None:
 
     Bu test tokenizer'ın minimum reconstruction davranışını doğrular.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
     text = "Hello world!"
 
     tokenizer.train(text)
@@ -302,7 +302,7 @@ def test_regex_tokenizer_decode_before_training_raises_error() -> None:
 
     Çünkü decode() id_to_token mapping'ine ihtiyaç duyar.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
 
     with pytest.raises(ValueError, match="Tokenizer has not been trained yet"):
         tokenizer.decode([0, 1])
@@ -317,7 +317,7 @@ def test_regex_tokenizer_decode_unknown_token_id_raises_error() -> None:
 
     9999 id_to_token içinde olmadığı için hata beklenir.
     """
-    tokenizer = RegexTokenizer()
+    tokenizer = TokenizerFactory.create("regex")
     tokenizer.train("Hello world")
 
     with pytest.raises(ValueError, match="Unknown token id"):

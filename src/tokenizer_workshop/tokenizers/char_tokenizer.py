@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from tokenizer_workshop.tokenizers.base import BaseTokenizer
+from tokenizer_workshop.tokenizers.registry import register_tokenizer
 
 
+@register_tokenizer("char")
 class CharTokenizer(BaseTokenizer):
     """
     Basit bir character-level tokenizer.

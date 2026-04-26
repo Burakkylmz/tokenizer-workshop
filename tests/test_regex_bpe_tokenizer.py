@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import pytest
-from tokenizer_workshop.tokenizers import RegexBPETokenizer
+
+from tokenizer_workshop.api.services.tokenizer_factory import TokenizerFactory
 
 SAMPLE_TEXT = (
     "salam dünya salam dünya "
@@ -15,7 +17,7 @@ VOCAB_SIZE = 270
 @pytest.fixture
 def trained_tokenizer():
     # Yeni boş tokenizer oluştur
-    t = RegexBPETokenizer()
+    t = TokenizerFactory.create("regex_bpe")
     
     # SAMPLE_TEXT ile eğit, VOCAB_SIZE=270 token öğren
     t.train(SAMPLE_TEXT, VOCAB_SIZE)
@@ -28,7 +30,7 @@ def trained_tokenizer():
 # vocab_size 256'dan küçük olunca ValueError fırlatıldığını test eder
 def test_train_vocab_size_minimum_256() -> None:
     # Yeni boş tokenizer oluştur
-    t = RegexBPETokenizer()
+    t = TokenizerFactory.create("regex_bpe")
     
     # Bu blok içinde ValueError bekliyoruz
     # Gelmezse → test başarısız 
@@ -114,7 +116,7 @@ def test_encode_without_train_raises() -> None:
     # Yeni boş tokenizer oluştur — train() çağrılmadı!
     # vocab  = {} ← boş
     # merges = {} ← boş
-    t = RegexBPETokenizer()
+    t = TokenizerFactory.create("regex_bpe")
     
     # Bu blok içinde RuntimeError bekliyoruz
     # Gelmezse → test başarısız 
@@ -158,7 +160,7 @@ def test_decode_returns_string(trained_tokenizer) -> None:
 def test_decode_without_train_raises() -> None:
     # Yeni boş tokenizer oluştur — train() çağrılmadı!
     # vocab = {} ← boş
-    t = RegexBPETokenizer()
+    t = TokenizerFactory.create("regex_bpe")
     
     # Bu blok içinde RuntimeError bekliyoruz
     # Gelmezse → test başarısız 

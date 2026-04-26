@@ -2,37 +2,37 @@ from __future__ import annotations
 
 import pytest
 
-from tokenizer_workshop.tokenizers import ByteBPETokenizer
+from tokenizer_workshop.api.services.tokenizer_factory import TokenizerFactory
 
 
 def test_byte_bpe_tokenizer_init_raises_error_for_invalid_num_merges() -> None:
     with pytest.raises(ValueError, match="num_merges must be at least 1"):
-        ByteBPETokenizer(num_merges=0)
+        TokenizerFactory.create("byte_bpe", num_merges=0)
 
 
 def test_byte_bpe_tokenizer_train_with_empty_text_raises_error() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
 
     with pytest.raises(ValueError, match="Training text cannot be empty"):
         tokenizer.train("")
 
 
 def test_byte_bpe_tokenizer_encode_before_training_raises_error() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
 
     with pytest.raises(ValueError, match="Tokenizer has not been trained yet"):
         tokenizer.encode("abababa")
 
 
 def test_byte_bpe_tokenizer_decode_before_training_raises_error() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
 
     with pytest.raises(ValueError, match="Tokenizer has not been trained yet"):
         tokenizer.decode([0, 1, 2])
 
 
 def test_byte_bpe_tokenizer_always_has_full_byte_base_vocabulary() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
     tokenizer.train("abababa")
 
     # Base vocabulary her zaman 256 byte'ı içerir, merged tokens eklenir.
@@ -40,7 +40,7 @@ def test_byte_bpe_tokenizer_always_has_full_byte_base_vocabulary() -> None:
 
 
 def test_byte_bpe_tokenizer_vocab_size_grows_with_num_merges() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=5)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=5)
     tokenizer.train("abababa")
 
     # Training text'inde öğrenilen benzersiz merge'ler vocab'a eklenir.
@@ -49,7 +49,7 @@ def test_byte_bpe_tokenizer_vocab_size_grows_with_num_merges() -> None:
 
 
 def test_byte_bpe_tokenizer_encode_returns_integer_token_ids() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
     tokenizer.train("abababa")
 
     encoded = tokenizer.encode("abababa")
@@ -60,7 +60,7 @@ def test_byte_bpe_tokenizer_encode_returns_integer_token_ids() -> None:
 
 
 def test_byte_bpe_tokenizer_decode_reconstructs_original_text() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
     tokenizer.train("abababa")
 
     encoded = tokenizer.encode("abababa")
@@ -70,7 +70,7 @@ def test_byte_bpe_tokenizer_decode_reconstructs_original_text() -> None:
 
 
 def test_byte_bpe_tokenizer_encode_decode_roundtrip() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=5)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=5)
     tokenizer.train("tokenization")
 
     text = "tokenization"
@@ -78,7 +78,7 @@ def test_byte_bpe_tokenizer_encode_decode_roundtrip() -> None:
 
 
 def test_byte_bpe_tokenizer_roundtrip_with_turkish_characters() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=5)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=5)
     tokenizer.train("çğüşöıİ")
 
     text = "çğüşöıİ"
@@ -91,7 +91,7 @@ def test_byte_bpe_tokenizer_roundtrip_with_turkish_characters() -> None:
 def test_byte_bpe_tokenizer_can_encode_characters_unseen_during_training() -> None:
     # Byte-level BPE'nin en güçlü yanı: base vocabulary 256 byte'ı içerdiği için
     # training sırasında hiç görülmemiş karakterler bile encode edilebilir.
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
     tokenizer.train("abababa")
 
     text = "xyz"  # training text'inde yok
@@ -102,7 +102,7 @@ def test_byte_bpe_tokenizer_can_encode_characters_unseen_during_training() -> No
 
 
 def test_byte_bpe_tokenizer_learns_merge_steps() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
     tokenizer.train("abababa")
 
     assert len(tokenizer.merge_steps) >= 1
@@ -115,7 +115,7 @@ def test_byte_bpe_tokenizer_learns_merge_steps() -> None:
 
 
 def test_byte_bpe_tokenizer_can_reduce_token_count_for_repetitive_text() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
     text = "abababa"
 
     tokenizer.train(text)
@@ -127,7 +127,7 @@ def test_byte_bpe_tokenizer_can_reduce_token_count_for_repetitive_text() -> None
 
 
 def test_byte_bpe_tokenizer_decode_unknown_token_id_raises_error() -> None:
-    tokenizer = ByteBPETokenizer(num_merges=3)
+    tokenizer = TokenizerFactory.create("byte_bpe", num_merges=3)
     tokenizer.train("abababa")
 
     with pytest.raises(ValueError, match="Unknown token id encountered"):
@@ -135,8 +135,8 @@ def test_byte_bpe_tokenizer_decode_unknown_token_id_raises_error() -> None:
 
 
 def test_byte_bpe_tokenizer_is_deterministic_for_same_input() -> None:
-    tokenizer_a = ByteBPETokenizer(num_merges=3)
-    tokenizer_b = ByteBPETokenizer(num_merges=3)
+    tokenizer_a = TokenizerFactory.create("byte_bpe", num_merges=3)
+    tokenizer_b = TokenizerFactory.create("byte_bpe", num_merges=3)
 
     tokenizer_a.train("abababa")
     tokenizer_b.train("abababa")

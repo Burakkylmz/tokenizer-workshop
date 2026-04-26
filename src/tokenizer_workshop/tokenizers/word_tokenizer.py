@@ -1,10 +1,11 @@
-
-
 from __future__ import annotations
 import re
+
 from tokenizer_workshop.tokenizers.base import BaseTokenizer
+from tokenizer_workshop.tokenizers.registry import register_tokenizer
 
 
+@register_tokenizer("word")
 class WordTokenizer(BaseTokenizer):
     """"
     Metni kelime ve noktalama işaretleri bazında tokenize eder.

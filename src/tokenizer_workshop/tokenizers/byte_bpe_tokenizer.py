@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from tokenizer_workshop.tokenizers.base import BaseTokenizer
+from tokenizer_workshop.tokenizers.registry import register_tokenizer
 from tokenizer_workshop.trainers import BPETrainer, MergeStep
 
 
+@register_tokenizer("byte_bpe")
 class ByteBPETokenizer(BaseTokenizer):
     """
     Byte seviyesinde çalışan bir BPE tokenizer.
