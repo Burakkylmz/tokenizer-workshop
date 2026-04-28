@@ -374,6 +374,9 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
         elif name == "wordpiece":
             lines.append("• wordpiece  : best for subword tokenization with a fixed vocabulary")
 
+        elif name == "unigram":
+            lines.append("• unigram    : best for probabilistic subword tokenization with a fixed vocabulary")
+
         lines.extend(
         [
             "",
@@ -385,6 +388,7 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• Regex-based tokenization allows for custom patterns and domain-specific text handling.",
             "• N-gram tokenization captures local context and multi-word expressions, which can be beneficial for certain languages and tasks, but may increase token count compared to word-level tokenization.",
             "• WordPiece tokenization is effective for subword tokenization with a fixed vocabulary, commonly used in transformer models, but may require careful handling of unknown tokens and vocabulary management.",
+            "• Unigram tokenization is effective for probabilistic subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
             "",
         ]
     )
