@@ -224,6 +224,7 @@ def build_pdf_report(data: dict[str, Any], output_path: str | Path) -> Path:
         "subword": "Best for fixed-size subword tokenization",
         "morpheme": "Best for linguistically motivated subword tokenization",
         "byte_level_bpe": "Best for handling complex or unseen text",
+        "pretrained": "Best for leveraging existing tokenization models",
     }
 
     for item in results:
