@@ -419,6 +419,9 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
         elif name == "morpheme":
             lines.append("• morpheme    : best for linguistically motivated subword tokenization")
 
+        elif name == "byte_level_bpe":
+            lines.append("• byte_level_bpe  : best for handling complex or unseen text")    
+
     lines.extend(
         [
             "",
@@ -436,6 +439,7 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• Punctuation tokenization is effective for separating words and punctuation into distinct tokens, which can improve readability and downstream processing. However, it may increase token count and latency compared to simpler tokenization strategies.",
             "• Subword tokenization is effective for fixed-size subword tokenization, balancing flexibility and compression.",
             "• Morpheme tokenization is effective for linguistically motivated subword tokenization, capturing meaningful units of language. However, it may require language-specific resources and may not always align with the needs of downstream models.",
+            "• Byte-level BPE tokenization is effective for handling complex or unseen text, ensuring full coverage of any input.", 
             "",
             "Ultimately, the best tokenizer choice depends on the specific requirements of the application, including the desired balance between compression, speed, interpretability, and robustness to diverse input types.",
         ]
