@@ -54,6 +54,7 @@ TOKENIZER_CONFIG = {
     "sentencepiece": {"vocab_size": 100},
     "white_space": {},
     "punctuation": {},  
+    "subword": {"subword_size": 3}, 
 }
 
 
