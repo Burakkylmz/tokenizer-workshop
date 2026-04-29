@@ -3,21 +3,24 @@ from __future__ import annotations
 """
 compare.py
 
-Uygulamanın CLI entry point'i.
+Tokenizer Workshop CLI entry point.
 
 Bu dosya intentionally thin tutulur:
-- İş mantığı burada olmaz
-- Orchestration burada olur
-- Asıl logic CompareManager + services katmanındadır
+- CLI akışı burada yönetilmez
+- Comparison pipeline burada çalıştırılmaz
+- Sadece bağımlılıklar oluşturulur ve CLIController başlatılır
 
-Yeni mimari:
-    TokenizerFactory → Registry → Discovery → Tokenizer
+Asıl sorumluluklar:
+    cli/controller.py  → kullanıcı akışı
+    cli/runner.py      → comparison execution
+    cli/menu.py        → terminal çıktıları
+    cli/input.py       → input parsing
 """
 
-from tokenizer_workshop.comparisons.compare_manager import CompareManager
+from typing import Any
 
-from tokenizer_workshop.tokenizers.base import BaseTokenizer
-from tokenizer_workshop.api.services.tokenizer_factory import TokenizerFactory
+from tokenizer_workshop.cli import CLIComparisonRunner, CLIController
+from tokenizer_workshop.comparisons.compare_manager import CompareManager
 
 
 # ============================================================
@@ -35,12 +38,15 @@ Byte pair encoding can merge frequent byte patterns.
 # Karşılaştırma için kullanılacak kısa test metni
 COMPARE_TEXT = "Hello world! Tokenization is fun."
 
+# Raporun kaydedileceği dosya yolu
+REPORT_PATH = "report.md"
+
 
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 
-TOKENIZER_CONFIG = {
+TOKENIZER_CONFIG: dict[str, dict[str, Any]] = {
     "word": {},
     "char": {},
     "byte": {},
@@ -53,23 +59,12 @@ TOKENIZER_CONFIG = {
     "unigram": {"vocab_size": 100},
     "sentencepiece": {"vocab_size": 100},
     "white_space": {},
-    "punctuation": {},  
-    "subword": {"subword_size": 3}, 
+    "punctuation": {},
+    "subword": {"subword_size": 3},
+    "morpheme": {},
+    "byte_level_bpe": {"num_merges": 10},
+    "pretrained": {"model_name": "gpt2"},
 }
-
-
-def build_tokenizers() -> dict[str, BaseTokenizer]:
-    """
-    Karşılaştırmada kullanılacak tokenizer instance'larını üretir.
-
-    Yeni tokenizer eklemek için sadece TOKENIZER_CONFIG'e ekleme yapmak yeterlidir.
-    """
-
-    return {
-        name: TokenizerFactory.create(name, **config)
-        for name, config in TOKENIZER_CONFIG.items()
-    }
-
 
 
 # ============================================================
@@ -124,67 +119,54 @@ def main() -> None:
     manager = CompareManager()
 
     # ============================================================
-    # 2. TOKENIZER'LARI OLUŞTUR
+    # 2. TOKENIZER OLUŞTUR
     # ============================================================
-    # build_tokenizers fonksiyonu, karşılaştırmada kullanılacak tokenizer nesnelerini oluşturur.
-    # Bu fonksiyonun amacı:
-    # - tokenizer oluşturma logic'ini main() içinden çıkarmak
-    # - kodu daha modüler hale getirmek
-    # - ileride yeni tokenizer eklemeyi kolaylaştırmak
-    # Bu fonksiyon, her tokenizer için bir nesne oluşturur ve bunları bir sözlük (dict) içinde döner.
-    # Böylece main() fonksiyonu sadece bu sözlüğü alır ve karşılaştırma sürecine dahil eder.
-    # Bu tasarım, tokenizer oluşturma logic'ini tek bir yerde toplar ve main() fonksiyonunu daha temiz tutar.
-    # Ayrıca yeni tokenizer eklemek istediğimizde sadece bu fonksiyonu güncelleyerek kolayca yapabiliriz.
-    # Örneğin:
-    # def build_tokenizers():
-    #     return {
-    #         "word": WordTokenizer(),
-    #         "byte_bpe": ByteBPETokenizer(num_merges=10),
-    #         "char": CharTokenizer(),
-    #     }
-    # Böylece main() fonksiyonu değişmeden yeni tokenizer'lar eklenebilir.
-    # Bu fonksiyon, karşılaştırmada kullanılacak tokenizer'ların merkezi oluşturulma noktasıdır.
-    # Bu sayede kodun organizasyonu daha iyi olur ve genişletilebilirlik artar.
-    tokenizers = build_tokenizers()
-
-    # ============================================================
-    # 3. TOKENIZER'LARI EĞİT
-    # ============================================================
-    # Not:
-    # Tüm tokenizer'lar train() desteklemeyebilir.
-    # Bu yüzden CompareManager içindeki train_tokenizers kullanılır.
-    # Bu metod, verilen tokenizer'lar arasında train() destekleyenleri tespit eder ve sadece onlara eğitim metniyle train() çağırır.
-    # Böylece main() fonksiyonu, hangi tokenizer'ın train() desteklediği konusunda endişelenmeden sadece tüm tokenizer'ları train_tokenizers metoduna verir.
-    # CompareManager içindeki train_tokenizers metodu, her tokenizer'ı kontrol eder:
-    # for name, tokenizer in tokenizers.items():
-    #     if hasattr(tokenizer, "train") and callable(getattr(tokenizer, "train")):
-    #         tokenizer.train(train_text)
-    # Bu sayede main() fonksiyonu sadece tokenizers sözlüğünü verir ve gerisini CompareManager halleder.
-    manager.train_tokenizers(
-        tokenizers=tokenizers,
-        train_text=TRAIN_TEXT,
+    # Tokenizer'lar, metni token'lara bölen sınıflardır.
+    # Her tokenizer'ın kendine özgü bir tokenize() metodu vardır.
+    # Tokenizer'lar, farklı tokenization stratejileri uygularlar:
+        # - WordTokenizer: Metni kelimelere böler
+        # - CharTokenizer: Metni karakterlere böler
+        # - ByteTokenizer: Metni byte'lara böler
+        # - ByteLevelBPETokenizer: Byte'lara dayalı BPE tokenization yapar
+        # - SimpleBPETokenizer: Basit BPE tokenization yapar
+        # - RegexTokenizer: Regex desenlerine göre token'lara böler
+        # - RegexBPETokenizer: Regex tabanlı BPE tokenization yapar
+        # - NGramTokenizer: N-gram tokenization yapar
+        # - WordPieceTokenizer: WordPiece tokenization yapar
+        # - UnigramTokenizer: Unigram tokenization yapar
+        # - SentencePieceTokenizer: SentencePiece tokenization yapar
+        # - WhiteSpaceTokenizer: Metni boşluklara göre böler
+        # - PunctuationTokenizer: Noktalama işaretlerini ayrı token yapar
+        # - SubwordTokenizer: Subword tokenization yapar
+        # - MorphemeTokenizer: Morfolojik analiz yapar
+        # - PretrainedTokenizer: Önceden eğitilmiş bir tokenizer'ı kullanır
+    # Tokenizer'lar, farklı tokenization stratejileri uygulayarak metni token'lara bölerler.
+    # Bu tokenizer'lar, karşılaştırma sürecinde farklı tokenization sonuçları üreterek birbirleriyle karşılaştırılırlar.
+    # Bu tokenizer'lar, CompareManager tarafından yönetilir ve karşılaştırma sürecinde kullanılırlar.
+    runner = CLIComparisonRunner(
+        manager=manager, # CompareManager instance'ını runner'a verilir
+        train_text=TRAIN_TEXT, # Eğitim metni runner'a verilir
+        report_path=REPORT_PATH, # Raporun kaydedileceği dosya yolu runner'a verilir
     )
 
     # ============================================================
-    # 4. KARŞILAŞTIRMA
+    # 3. CONTROLLER OLUŞTUR VE ÇALIŞTIR
     # ============================================================
-    # compare_multiple:
-    # artık birden fazla tokenizer destekler
-    # Bu metod, verilen metin üzerinde tüm tokenizer'ları çalıştırır ve 
-    # sonuçları tek bir ComparisonResult içinde döner.
-    # Bu sayede main() fonksiyonu sadece bu tek metodu çağırarak tüm karşılaştırma sürecini başlatır.
-    # Böylece main() fonksiyonu çok ince (thin) kalır ve tüm mantık CompareManager içinde yer alır.
-    result = manager.compare_multiple(
-        text=COMPARE_TEXT,
-        tokenizers=tokenizers,
+    # CLIController, kullanıcı arayüzünü yöneten sınıftır.
+    # Bu sınıfın görevi:
+    # - Kullanıcıdan input almak
+    # - Runner'ı tetiklemek
+    # - Sonuçları terminale yazdırmak
+    # CLIController, kullanıcı etkileşimlerini yönetir ve runner'ı kullanarak karşılaştırma sürecini başlatır.
+    # CLIController, kullanıcı arayüzü ile karşılaştırma mantığını birbirinden ayırır.
+    # Bu tasarım, kodun daha modüler, test edilebilir ve genişletilebilir olmasını sağlar.
+    ontroller = CLIController(
+        runner=runner, # CLIComparisonRunner instance'ını controller'a verilir
+        tokenizer_config=TOKENIZER_CONFIG, # Tokenizer konfigürasyonu controller'a verilir
+        default_compare_text=COMPARE_TEXT, # Karşılaştırma için kullanılacak metin controller'a verilir
     )
 
-    # ============================================================
-    # 5. SONUCU YAZDIR
-    # ============================================================
-    # print_comparison_result:
-    # karşılaştırma sonucunu ekrana yazdırır
-    manager.print_comparison_result(result, save_path="report.md")
+    controller.run() # CLIController'un run() metodu çağrılarak kullanıcı arayüzü başlatılır ve karşılaştırma süreci tetiklenir
 
 
 # ============================================================
