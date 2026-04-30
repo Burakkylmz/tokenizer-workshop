@@ -408,6 +408,11 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
                 "• white_space : best for simple baseline tokenization and debugging"
             )
 
+        elif name == "punctuation":
+            lines.append(
+                "• punctuation : best for separating words and punctuation into distinct tokens"
+            )
+
     lines.extend(
         [
             "",
@@ -422,7 +427,9 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• Unigram tokenization is effective for probabilistic subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
             "• SentencePiece tokenization is effective for flexible subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
             "• Whitespace tokenization is a simple baseline that can be useful for debugging and educational purposes, but it may not provide the best performance or compression for most real-world applications.",
+            "• Punctuation tokenization is effective for separating words and punctuation into distinct tokens, which can improve readability and downstream processing. However, it may increase token count and latency compared to simpler tokenization strategies.",
             "",
+            "Ultimately, the best tokenizer choice depends on the specific requirements of the application, including the desired balance between compression, speed, interpretability, and robustness to diverse input types.",
         ]
     )
 
