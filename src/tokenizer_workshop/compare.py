@@ -51,6 +51,7 @@ TOKENIZER_CONFIG = {
     "ngram": {"n": 2},
     "wordpiece": {"vocab_size": 100},
     "unigram": {"vocab_size": 100},
+    "sentencepiece": {"vocab_size": 100},
 }
 
 

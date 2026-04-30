@@ -15,6 +15,7 @@ dependencies = [
      "markdown>=3.10.2",
      "weasyprint>=68.1",
      "reportlab>=4.4.10",
+     "sentencepiece>=0.2.1",
 ]
 
 [project.scripts]
