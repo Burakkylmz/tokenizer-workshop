@@ -399,6 +399,9 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
         elif name == "byte_level_bpe":
             lines.append("• byte_level_bpe  : best for handling complex or unseen text")    
 
+        elif name == "pretrained":
+            lines.append("• pretrained : best for leveraging existing tokenization models")
+
         lines.extend(
         [
             "",
@@ -417,6 +420,7 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• Subword tokenization is effective for fixed-size subword tokenization, balancing flexibility and compression.",
             "• Morpheme tokenization is effective for linguistically motivated subword tokenization, capturing meaningful units of language. However, it may require language-specific resources and may not always align with the needs of downstream models.",
             "• Byte-level BPE tokenization is effective for handling complex or unseen text, ensuring full coverage of any input.", 
+            "• Pretrained tokenization is effective for leveraging existing tokenization models, providing strong performance on many tasks. However, it may require additional dependencies and may not be customizable for specific domains or languages.",
             "",
             "Ultimately, the best tokenizer choice depends on the specific requirements of the application, including the desired balance between compression, speed, interpretability, and robustness to diverse input types." 
         ]
