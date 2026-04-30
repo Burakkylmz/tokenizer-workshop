@@ -217,6 +217,7 @@ def build_pdf_report(data: dict[str, Any], output_path: str | Path) -> Path:
         "regex_bpe": "Best for custom tokenization patterns and domain-specific text",
         "ngram": "Best for capturing local context and multi-word expressions",
         "wordpiece": "Best for subword tokenization with a fixed vocabulary",
+        "unigram": "Best for probabilistic subword tokenization with a fixed vocabulary",
     }
 
     for item in results:

@@ -49,6 +49,8 @@ TOKENIZER_CONFIG = {
     "regex": {},
     "regex_bpe": {},
     "ngram": {"n": 2},
+    "wordpiece": {"vocab_size": 100},
+    "unigram": {"vocab_size": 100},
 }
 
 

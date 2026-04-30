@@ -12,14 +12,16 @@ SUMMARY TABLE
 ------------------------------------------------------------------------------------------------------------------------
 Tokenizer  | Token | Uniq | Uniq Ratio | Avg Len | Min Len | Max Len | Avg Chars/Token | Unknown | Latency  | Eff.
 -----------+-------+------+------------+---------+---------+---------+-----------------+---------+----------+-----
-word       | 7     | 7    | 1.00       | 4.14    | 1       | 12      | 4.71            | 0.00    | 0.000019 | 4.71
-char       | 33    | 20   | 0.61       | 1.73    | 1       | 2       | 1.00            | 0.00    | 0.000020 | 1.00
-byte       | 33    | 20   | 0.61       | 2.73    | 2       | 3       | 1.00            | 0.00    | 0.000012 | 1.00
-byte_bpe   | 25    | 19   | 0.76       | 1.32    | 1       | 5       | 1.32            | 0.00    | 0.000077 | 1.32
-simple_bpe | 25    | 19   | 0.76       | 1.80    | 1       | 2       | 1.32            | 0.00    | 0.000072 | 1.32
-regex      | 7     | 7    | 1.00       | 4.14    | 1       | 12      | 4.71            | 0.00    | 0.000009 | 4.71
-regex_bpe  | 11    | 8    | 0.73       | 2.45    | 2       | 3       | 3.00            | 0.00    | 0.000224 | 3.00
-ngram      | 4     | 4    | 1.00       | 13.25   | 7       | 19      | 8.25            | 0.00    | 0.000020 | 8.25
+word       | 7     | 7    | 1.00       | 4.14    | 1       | 12      | 4.71            | 0.00    | 0.000015 | 4.71
+char       | 33    | 20   | 0.61       | 1.73    | 1       | 2       | 1.00            | 0.00    | 0.000017 | 1.00
+byte       | 33    | 20   | 0.61       | 2.73    | 2       | 3       | 1.00            | 0.00    | 0.000011 | 1.00
+byte_bpe   | 25    | 19   | 0.76       | 1.32    | 1       | 5       | 1.32            | 0.00    | 0.000073 | 1.32
+simple_bpe | 25    | 19   | 0.76       | 1.80    | 1       | 2       | 1.32            | 0.00    | 0.000071 | 1.32
+regex      | 7     | 7    | 1.00       | 4.14    | 1       | 12      | 4.71            | 0.00    | 0.000007 | 4.71
+regex_bpe  | 11    | 8    | 0.73       | 2.45    | 2       | 3       | 3.00            | 0.00    | 0.000210 | 3.00
+ngram      | 4     | 4    | 1.00       | 13.25   | 7       | 19      | 8.25            | 0.00    | 0.000006 | 8.25
+wordpiece  | 11    | 9    | 0.82       | 4.00    | 1       | 12      | 3.00            | 0.00    | 0.000022 | 3.00
+unigram    | 12    | 11   | 0.92       | 2.75    | 1       | 12      | 2.75            | 0.00    | 0.000070 | 2.75
 
 HIGHLIGHTS
 ------------------------------------------------------------------------------------------------------------------------
@@ -27,7 +29,7 @@ Lowest Token Count   : ngram (4)
 Highest Token Count  : char (33)
 Best Efficiency      : ngram (8.25)
 Highest Unique Count : char (20)
-Fastest Tokenizer    : regex (9µs)
+Fastest Tokenizer    : ngram (6µs)
 
 INTERPRETATION
 ------------------------------------------------------------------------------------------------------------------------
@@ -35,7 +37,7 @@ The 'ngram' tokenizer yielded the lowest token count, suggesting a coarse-graine
 The 'char' tokenizer produced the highest number of tokens, indicating a fine-grained segmentation.
 The 'ngram' tokenizer achieved the highest efficiency score, (8.25), balancing token count and unknown-token behavior.
 The 'char' tokenizer generated the most unique tokens (20), suggesting higher diversity.
-The 'regex' tokenizer completed tokenization in the shortest time (0.000009s), making it the fastest option for this sample.
+The 'ngram' tokenizer completed tokenization in the shortest time (0.000006s), making it the fastest option for this sample.
 The 'ngram' tokenizer produced the highest characters-per-token ratio (8.25), indicating larger token chunks.
 
 Overall, these observations highlight how different tokenization strategies affect segmentation granularity, token diversity, and processing efficiency.
@@ -54,7 +56,7 @@ Max Token Length       : 12
 Avg Chars / Token      : 4.71
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000019s
+Latency                : 0.000015s
 Efficiency Score       : 4.71
 Top-5 Tokens           : [('Hello', 1), ('world', 1), ('!', 1), ('Tokenization', 1), ('is', 1)]
 Token Length Dist.     : {1: 2, 2: 1, 3: 1, 5: 2, 12: 1}
@@ -70,7 +72,7 @@ Max Token Length       : 2
 Avg Chars / Token      : 1.00
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000020s
+Latency                : 0.000017s
 Efficiency Score       : 1.00
 Top-5 Tokens           : [('20', 4), ('1', 4), ('17', 3), ('19', 3), ('15', 3)]
 Token Length Dist.     : {1: 9, 2: 24}
@@ -86,7 +88,7 @@ Max Token Length       : 3
 Avg Chars / Token      : 1.00
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000012s
+Latency                : 0.000011s
 Efficiency Score       : 1.00
 Top-5 Tokens           : [('111', 4), ('32', 4), ('108', 3), ('110', 3), ('105', 3)]
 Token Length Dist.     : {2: 9, 3: 24}
@@ -102,7 +104,7 @@ Max Token Length       : 5
 Avg Chars / Token      : 1.32
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000077s
+Latency                : 0.000073s
 Efficiency Score       : 1.32
 Top-5 Tokens           : [('o', 3), ('i', 3), ('l', 2), (' ', 2), ('H', 1)]
 Token Length Dist.     : {1: 20, 2: 4, 5: 1}
@@ -118,7 +120,7 @@ Max Token Length       : 2
 Avg Chars / Token      : 1.32
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000072s
+Latency                : 0.000071s
 Efficiency Score       : 1.32
 Top-5 Tokens           : [('20', 3), ('15', 3), ('17', 2), ('1', 2), ('5', 1)]
 Token Length Dist.     : {1: 5, 2: 20}
@@ -134,7 +136,7 @@ Max Token Length       : 12
 Avg Chars / Token      : 4.71
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000009s
+Latency                : 0.000007s
 Efficiency Score       : 4.71
 Top-5 Tokens           : [('Hello', 1), ('world', 1), ('!', 1), ('Tokenization', 1), ('is', 1)]
 Token Length Dist.     : {1: 2, 2: 1, 3: 1, 5: 2, 12: 1}
@@ -150,7 +152,7 @@ Max Token Length       : 3
 Avg Chars / Token      : 3.00
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000224s
+Latency                : 0.000210s
 Efficiency Score       : 3.00
 Top-5 Tokens           : [('32', 4), ('275', 1), ('279', 1), ('33', 1), ('268', 1)]
 Token Length Dist.     : {2: 6, 3: 5}
@@ -166,21 +168,55 @@ Max Token Length       : 19
 Avg Chars / Token      : 8.25
 Unknown Count          : 0
 Unknown Rate           : 0.00
-Latency                : 0.000020s
+Latency                : 0.000006s
 Efficiency Score       : 8.25
 Top-5 Tokens           : [('Hello world!', 1), ('world! Tokenization', 1), ('Tokenization is', 1), ('is fun.', 1)]
 Token Length Dist.     : {7: 1, 12: 1, 15: 1, 19: 1}
 
+[wordpiece]
+Tokens                 : ['hel', '##l', '##o', '[UNK]', '[UNK]', 'tokenization', '[UNK]', 'f', '##u', '##n', '.']
+Token Count            : 11
+Unique Token Count     : 9
+Unique Ratio           : 0.82
+Average Token Length   : 4.00
+Min Token Length       : 1
+Max Token Length       : 12
+Avg Chars / Token      : 3.00
+Unknown Count          : 0
+Unknown Rate           : 0.00
+Latency                : 0.000022s
+Efficiency Score       : 3.00
+Top-5 Tokens           : [('[UNK]', 3), ('hel', 1), ('##l', 1), ('##o', 1), ('tokenization', 1)]
+Token Length Dist.     : {1: 2, 3: 5, 5: 3, 12: 1}
+
+[unigram]
+Tokens                 : ['hel', 'l', 'o', '[UNK]', '[UNK]', 'tokenization', 'i', 's', 'f', 'u', 'n', '.']
+Token Count            : 12
+Unique Token Count     : 11
+Unique Ratio           : 0.92
+Average Token Length   : 2.75
+Min Token Length       : 1
+Max Token Length       : 12
+Avg Chars / Token      : 2.75
+Unknown Count          : 0
+Unknown Rate           : 0.00
+Latency                : 0.000070s
+Efficiency Score       : 2.75
+Top-5 Tokens           : [('[UNK]', 2), ('hel', 1), ('l', 1), ('o', 1), ('tokenization', 1)]
+Token Length Dist.     : {1: 8, 3: 1, 5: 2, 12: 1}
+
 OVERALL RANKING
 ------------------------------------------------------------------------------------------------------------------------
-1. ngram (efficiency=8.25, latency=0.000020s)
-2. regex (efficiency=4.71, latency=0.000009s)
-3. word (efficiency=4.71, latency=0.000019s)
-4. regex_bpe (efficiency=3.00, latency=0.000224s)
-5. simple_bpe (efficiency=1.32, latency=0.000072s)
-6. byte_bpe (efficiency=1.32, latency=0.000077s)
-7. byte (efficiency=1.00, latency=0.000012s)
-8. char (efficiency=1.00, latency=0.000020s)
+1. ngram (efficiency=8.25, latency=0.000006s)
+2. regex (efficiency=4.71, latency=0.000007s)
+3. word (efficiency=4.71, latency=0.000015s)
+4. wordpiece (efficiency=3.00, latency=0.000022s)
+5. regex_bpe (efficiency=3.00, latency=0.000210s)
+6. unigram (efficiency=2.75, latency=0.000070s)
+7. simple_bpe (efficiency=1.32, latency=0.000071s)
+8. byte_bpe (efficiency=1.32, latency=0.000073s)
+9. byte (efficiency=1.00, latency=0.000011s)
+10. char (efficiency=1.00, latency=0.000017s)
 
 PAIRWISE COMPARISONS
 ------------------------------------------------------------------------------------------------------------------------
@@ -227,6 +263,18 @@ Only In word (7) : ['!', '.', 'Hello', 'Tokenization', 'fun', 'is', 'world']
 Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
 Overlap Ratio : 0.00
 
+[word <-> wordpiece]
+Common Tokens (1)      : ['.']
+Only In word (6) : ['!', 'Hello', 'Tokenization', 'fun', 'is', 'world']
+Only In wordpiece (8) : ['##l', '##n', '##o', '##u', '[UNK]', 'f', 'hel', 'tokenization']
+Overlap Ratio : 0.07
+
+[word <-> unigram]
+Common Tokens (1)      : ['.']
+Only In word (6) : ['!', 'Hello', 'Tokenization', 'fun', 'is', 'world']
+Only In unigram (10) : ['[UNK]', 'f', 'hel', 'i', 'l', 'n', 'o', 's', 'tokenization', 'u']
+Overlap Ratio : 0.06
+
 [char <-> byte]
 Common Tokens (0)      : []
 Only In char (20) : ['1', '10', '11', '12', '15', '16', '17', '19', '2', '20', '23', '24', '25', '26', '27', '3', '30', '5', '6', '7']
@@ -263,6 +311,18 @@ Only In char (20) : ['1', '10', '11', '12', '15', '16', '17', '19', '2', '20', '
 Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
 Overlap Ratio : 0.00
 
+[char <-> wordpiece]
+Common Tokens (0)      : []
+Only In char (20) : ['1', '10', '11', '12', '15', '16', '17', '19', '2', '20', '23', '24', '25', '26', '27', '3', '30', '5', '6', '7']
+Only In wordpiece (9) : ['##l', '##n', '##o', '##u', '.', '[UNK]', 'f', 'hel', 'tokenization']
+Overlap Ratio : 0.00
+
+[char <-> unigram]
+Common Tokens (0)      : []
+Only In char (20) : ['1', '10', '11', '12', '15', '16', '17', '19', '2', '20', '23', '24', '25', '26', '27', '3', '30', '5', '6', '7']
+Only In unigram (11) : ['.', '[UNK]', 'f', 'hel', 'i', 'l', 'n', 'o', 's', 'tokenization', 'u']
+Overlap Ratio : 0.00
+
 [byte <-> byte_bpe]
 Common Tokens (0)      : []
 Only In byte (20) : ['100', '101', '102', '105', '107', '108', '110', '111', '114', '115', '116', '117', '119', '122', '32', '33', '46', '72', '84', '97']
@@ -293,6 +353,18 @@ Only In byte (20) : ['100', '101', '102', '105', '107', '108', '110', '111', '11
 Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
 Overlap Ratio : 0.00
 
+[byte <-> wordpiece]
+Common Tokens (0)      : []
+Only In byte (20) : ['100', '101', '102', '105', '107', '108', '110', '111', '114', '115', '116', '117', '119', '122', '32', '33', '46', '72', '84', '97']
+Only In wordpiece (9) : ['##l', '##n', '##o', '##u', '.', '[UNK]', 'f', 'hel', 'tokenization']
+Overlap Ratio : 0.00
+
+[byte <-> unigram]
+Common Tokens (0)      : []
+Only In byte (20) : ['100', '101', '102', '105', '107', '108', '110', '111', '114', '115', '116', '117', '119', '122', '32', '33', '46', '72', '84', '97']
+Only In unigram (11) : ['.', '[UNK]', 'f', 'hel', 'i', 'l', 'n', 'o', 's', 'tokenization', 'u']
+Overlap Ratio : 0.00
+
 [byte_bpe <-> simple_bpe]
 Common Tokens (0)      : []
 Only In byte_bpe (19) : [' ', '!', '.', 'H', 'Token', 'at', 'd', 'el', 'f', 'i', 'l', 'n', 'n ', 'o', 'r', 's ', 'u', 'w', 'z']
@@ -317,6 +389,18 @@ Only In byte_bpe (19) : [' ', '!', '.', 'H', 'Token', 'at', 'd', 'el', 'f', 'i',
 Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
 Overlap Ratio : 0.00
 
+[byte_bpe <-> wordpiece]
+Common Tokens (2)      : ['.', 'f']
+Only In byte_bpe (17) : [' ', '!', 'H', 'Token', 'at', 'd', 'el', 'i', 'l', 'n', 'n ', 'o', 'r', 's ', 'u', 'w', 'z']
+Only In wordpiece (7) : ['##l', '##n', '##o', '##u', '[UNK]', 'hel', 'tokenization']
+Overlap Ratio : 0.08
+
+[byte_bpe <-> unigram]
+Common Tokens (7)      : ['.', 'f', 'i', 'l', 'n', 'o', 'u']
+Only In byte_bpe (12) : [' ', '!', 'H', 'Token', 'at', 'd', 'el', 'n ', 'r', 's ', 'w', 'z']
+Only In unigram (4) : ['[UNK]', 'hel', 's', 'tokenization']
+Overlap Ratio : 0.30
+
 [simple_bpe <-> regex]
 Common Tokens (0)      : []
 Only In simple_bpe (19) : ['1', '10', '12', '15', '17', '19', '2', '20', '23', '26', '27', '3', '30', '33', '35', '36', '37', '40', '5']
@@ -335,6 +419,18 @@ Only In simple_bpe (19) : ['1', '10', '12', '15', '17', '19', '2', '20', '23', '
 Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
 Overlap Ratio : 0.00
 
+[simple_bpe <-> wordpiece]
+Common Tokens (0)      : []
+Only In simple_bpe (19) : ['1', '10', '12', '15', '17', '19', '2', '20', '23', '26', '27', '3', '30', '33', '35', '36', '37', '40', '5']
+Only In wordpiece (9) : ['##l', '##n', '##o', '##u', '.', '[UNK]', 'f', 'hel', 'tokenization']
+Overlap Ratio : 0.00
+
+[simple_bpe <-> unigram]
+Common Tokens (0)      : []
+Only In simple_bpe (19) : ['1', '10', '12', '15', '17', '19', '2', '20', '23', '26', '27', '3', '30', '33', '35', '36', '37', '40', '5']
+Only In unigram (11) : ['.', '[UNK]', 'f', 'hel', 'i', 'l', 'n', 'o', 's', 'tokenization', 'u']
+Overlap Ratio : 0.00
+
 [regex <-> regex_bpe]
 Common Tokens (0)      : []
 Only In regex (7) : ['!', '.', 'Hello', 'Tokenization', 'fun', 'is', 'world']
@@ -347,11 +443,53 @@ Only In regex (7) : ['!', '.', 'Hello', 'Tokenization', 'fun', 'is', 'world']
 Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
 Overlap Ratio : 0.00
 
+[regex <-> wordpiece]
+Common Tokens (1)      : ['.']
+Only In regex (6) : ['!', 'Hello', 'Tokenization', 'fun', 'is', 'world']
+Only In wordpiece (8) : ['##l', '##n', '##o', '##u', '[UNK]', 'f', 'hel', 'tokenization']
+Overlap Ratio : 0.07
+
+[regex <-> unigram]
+Common Tokens (1)      : ['.']
+Only In regex (6) : ['!', 'Hello', 'Tokenization', 'fun', 'is', 'world']
+Only In unigram (10) : ['[UNK]', 'f', 'hel', 'i', 'l', 'n', 'o', 's', 'tokenization', 'u']
+Overlap Ratio : 0.06
+
 [regex_bpe <-> ngram]
 Common Tokens (0)      : []
 Only In regex_bpe (8) : ['268', '275', '279', '280', '282', '32', '33', '46']
 Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
 Overlap Ratio : 0.00
+
+[regex_bpe <-> wordpiece]
+Common Tokens (0)      : []
+Only In regex_bpe (8) : ['268', '275', '279', '280', '282', '32', '33', '46']
+Only In wordpiece (9) : ['##l', '##n', '##o', '##u', '.', '[UNK]', 'f', 'hel', 'tokenization']
+Overlap Ratio : 0.00
+
+[regex_bpe <-> unigram]
+Common Tokens (0)      : []
+Only In regex_bpe (8) : ['268', '275', '279', '280', '282', '32', '33', '46']
+Only In unigram (11) : ['.', '[UNK]', 'f', 'hel', 'i', 'l', 'n', 'o', 's', 'tokenization', 'u']
+Overlap Ratio : 0.00
+
+[ngram <-> wordpiece]
+Common Tokens (0)      : []
+Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
+Only In wordpiece (9) : ['##l', '##n', '##o', '##u', '.', '[UNK]', 'f', 'hel', 'tokenization']
+Overlap Ratio : 0.00
+
+[ngram <-> unigram]
+Common Tokens (0)      : []
+Only In ngram (4) : ['Hello world!', 'Tokenization is', 'is fun.', 'world! Tokenization']
+Only In unigram (11) : ['.', '[UNK]', 'f', 'hel', 'i', 'l', 'n', 'o', 's', 'tokenization', 'u']
+Overlap Ratio : 0.00
+
+[wordpiece <-> unigram]
+Common Tokens (5)      : ['.', '[UNK]', 'f', 'hel', 'tokenization']
+Only In wordpiece (4) : ['##l', '##n', '##o', '##u']
+Only In unigram (6) : ['i', 'l', 'n', 'o', 's', 'u']
+Overlap Ratio : 0.33
 
 ========================================================================================================================
                                                      END OF REPORT                                                      
