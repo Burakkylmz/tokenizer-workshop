@@ -28,4 +28,6 @@ __all__ = [
     "utc_now_iso",
     "normalize_text",
     "is_reconstruction_match",
+    "interpret_similarity_level",
+    "format_pairwise_comparisons",
 ]
