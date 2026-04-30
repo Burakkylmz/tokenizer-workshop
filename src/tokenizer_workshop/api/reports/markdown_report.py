@@ -403,6 +403,11 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
         elif name == "sentencepiece":
             lines.append("• sentencepiece : best for flexible subword tokenization with a fixed vocabulary")
 
+        elif name == "white_space":
+            lines.append(
+                "• white_space : best for simple baseline tokenization and debugging"
+            )
+
     lines.extend(
         [
             "",
@@ -416,6 +421,7 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• WordPiece tokenization is effective for subword tokenization with a fixed vocabulary, commonly used in transformer models, but may require careful handling of unknown tokens and vocabulary management.",
             "• Unigram tokenization is effective for probabilistic subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
             "• SentencePiece tokenization is effective for flexible subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
+            "• Whitespace tokenization is a simple baseline that can be useful for debugging and educational purposes, but it may not provide the best performance or compression for most real-world applications.",
             "",
         ]
     )

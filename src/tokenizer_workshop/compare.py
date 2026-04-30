@@ -52,6 +52,7 @@ TOKENIZER_CONFIG = {
     "wordpiece": {"vocab_size": 100},
     "unigram": {"vocab_size": 100},
     "sentencepiece": {"vocab_size": 100},
+    "white_space": {},
 }
 
 

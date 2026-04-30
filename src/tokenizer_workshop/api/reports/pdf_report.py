@@ -219,6 +219,7 @@ def build_pdf_report(data: dict[str, Any], output_path: str | Path) -> Path:
         "wordpiece": "Best for subword tokenization with a fixed vocabulary",
         "unigram": "Best for probabilistic subword tokenization with a fixed vocabulary",
         "sentencepiece": "Best for flexible subword tokenization with a fixed vocabulary",
+        "white_space": "Best for simple baseline tokenization and debugging",
     }
 
     for item in results:
