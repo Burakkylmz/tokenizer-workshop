@@ -26,7 +26,10 @@ Bu modeller yalnızca veri taşımaz.
 Aynı zamanda:
 - validation sağlar
 - OpenAPI/Swagger dokümantasyonunu zenginleştirir
-- API contract'ını okunabilir hale getirir"""
+- API contract'ını okunabilir hale getirir
+- Test yazmayı kolaylaştırır
+- Frontend ve diğer client'ların API ile nasıl iletişim kuracağını netleştirir
+"""
 
 from typing import Literal
 

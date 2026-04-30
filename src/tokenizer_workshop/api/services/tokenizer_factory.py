@@ -51,13 +51,11 @@ class TokenizerFactory:
     Neden factory kullanıyoruz?
 
     Çünkü uygulamanın farklı yerlerinde doğrudan şunu yapmak istemiyoruz:
-
         CharTokenizer()
         WordTokenizer()
         RegexTokenizer()
 
     Bunun yerine uygulama şunu yapar:
-
         TokenizerFactory.create("word")
 
     Böylece:
@@ -66,8 +64,7 @@ class TokenizerFactory:
         - yeni tokenizer eklemek kolaylaşır
         - UI/API tarafı concrete class'lara bağımlı olmaz
 
-    Registry/discovery mimarisiyle birlikte bu factory artık plug-in benzeri
-    bir yapıyı destekler.
+    Registry/discovery mimarisiyle birlikte this factory artık plug-in benzeri bir yapıyı destekler.
     """
 
     @staticmethod
@@ -96,7 +93,7 @@ class TokenizerFactory:
         Bu method factory içindeki tüm public methodlardan önce çağrılır.
         Böylece registry'nin boş kalması engellenir.
         """
-        auto_import_tokenizers()
+        auto_import_tokenizers() 
 
     @classmethod
     def get_registry(cls) -> dict[str, Any]:
@@ -121,8 +118,7 @@ class TokenizerFactory:
 
         Neden class yerine instance döndürüyoruz?
             API/service katmanı tokenizer'ı doğrudan kullanmak ister.
-            Bu yüzden burada registry'deki class referanslarından yeni nesneler
-            oluşturulur.
+            Bu yüzden burada registry'deki class referanslarından yeni nesneler oluşturulur.
 
         Neden her çağrıda yeni instance?
             Bazı tokenizer'lar train() sonrası state tutar:
@@ -134,7 +130,10 @@ class TokenizerFactory:
             Aynı instance'ın farklı isteklerde paylaşılması state leakage
             oluşturabilir. Bu nedenle her çağrıda fresh instance üretmek daha güvenlidir.
         """
-        cls._ensure_registry_loaded()
+        # Registry'nin dolu olduğundan emin olunur. 
+        # Eğer registry boşsa, auto_import_tokenizers() fonksiyonu çağrılarak tokenizers package'i altındaki tüm tokenizer modülleri import edilir ve 
+        # registry'nin dolması sağlanır.
+        cls._ensure_registry_loaded() # Registry'deki tüm tokenizer class'larından yeni instance'lar oluşturulur ve bir sözlük olarak döndürülür.
 
         return {
             name: tokenizer_cls()
@@ -165,7 +164,12 @@ class TokenizerFactory:
         Örnek:
             ["byte", "byte_bpe", "char", "regex", "regex_bpe", "word"]
         """
+        # Registry'nin dolu olduğundan emin olunur. 
+        # Eğer registry boşsa, auto_import_tokenizers() fonksiyonu çağrılarak tokenizers package'i altındaki tüm tokenizer modülleri import edilir 
+        # ve registry'nin dolması sağlanır.
         cls._ensure_registry_loaded()
+
+        # Registry'deki tüm tokenizer adları alınır, alfabetik olarak sıralanır ve döndürülür.
         return sorted(TokenizerRegistry.get_all().keys())
 
     @staticmethod
@@ -202,9 +206,11 @@ class TokenizerFactory:
             ValueError:
                 name boş veya sadece whitespace ise.
         """
+        # Normalizasyon kurallarına göre tokenizer adı standart forma dönüştürülür.
         if not isinstance(name, str):
             raise TypeError("Tokenizer name must be a string.")
 
+        # Başındaki ve sonundaki boşluklar silinir, küçük harfe çevrilir.
         normalized = name.strip().lower()
 
         if not normalized:
@@ -225,7 +231,7 @@ class TokenizerFactory:
         cls._ensure_registry_loaded()
 
         key = cls.normalize_name(tokenizer_name)
-        registry = TokenizerRegistry.get_all()
+        registry = TokenizerRegistry.get_all() 
 
         if key not in registry:
             supported = sorted(registry.keys())
