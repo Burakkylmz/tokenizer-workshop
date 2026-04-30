@@ -390,6 +390,12 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
                 "• punctuation : best for separating words and punctuation into distinct tokens"
             )
 
+        elif name == "subword":
+            lines.append("• subword     : best for fixed-size subword tokenization")
+
+        elif name == "morpheme":
+            lines.append("• morpheme    : best for linguistically motivated subword tokenization")
+
         lines.extend(
         [
             "",
@@ -405,6 +411,8 @@ def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> N
             "• SentencePiece tokenization is effective for flexible subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
             "• Whitespace tokenization is a simple baseline that can be useful for debugging and educational purposes, but it may not provide the best performance or compression for most real-world applications.",
             "• Punctuation tokenization is effective for separating words and punctuation into distinct tokens, which can improve readability and downstream processing. However, it may increase token count and latency compared to simpler tokenization strategies.",
+            "• Subword tokenization is effective for fixed-size subword tokenization, balancing flexibility and compression.",
+            "• Morpheme tokenization is effective for linguistically motivated subword tokenization, capturing meaningful units of language. However, it may require language-specific resources and may not always align with the needs of downstream models.",
             "",
             "Ultimately, the best tokenizer choice depends on the specific requirements of the application, including the desired balance between compression, speed, interpretability, and robustness to diverse input types." 
         ]

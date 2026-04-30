@@ -1,103 +1,81 @@
 """
 tokenizers package
 
-Bu package, projede kullanılan tüm tokenizer implementasyonlarını barındırır.
+Bu package, proje içinde kullanılan tokenizer altyapısını ve ortak tokenizer bileşenlerini expose eder.
 
 Kritik Tasarım Kararı:
+    Bu dosya içerisinde tokenizer class'ları (CharTokenizer, WordTokenizer vb.) DOĞRUDAN import edilmez.
 
-Bu dosya içerisinde tokenizer class'ları (CharTokenizer, WordTokenizer vb.)
-DOĞRUDAN import edilmez.
+Yani burada şu tarz importlar bilinçli olarak kullanılmaz:
 
-Neden?
-
-Eski yaklaşım:
     from .char_tokenizer import CharTokenizer
     from .word_tokenizer import WordTokenizer
+    from .regex_tokenizer import RegexTokenizer
 
 Bu yaklaşım:
     - her yeni tokenizer eklendiğinde bu dosyanın değiştirilmesini gerektirir
     - merkezi bağımlılık oluşturur (tight coupling)
     - bakım maliyetini artırır
 
-Yeni yaklaşım (mevcut sistem):
+Bunun yerine proje, registry + discovery tabanlı bir mimari kullanır.
+
+Mimari akış:
 
     tokenizer module
         ↓
-    @register_tokenizer(...)
+    @register_tokenizer("tokenizer_name")
         ↓
     TokenizerRegistry
         ↓
-    TokenizerFactory
+    TTokenizerFactory
 
-Bu sayede:
+Bu yaklaşımın avantajları:
+    - yeni tokenizer eklemek için sadece yeni bir dosya yazmak yeterlidir
+    - Yeni tokenizer eklemek için __init__.py dosyasını değiştirmek gerekmez.
+    - Merkezi import bağımlılığı azaltılır.
+    - Tokenizer sistemi plug-in benzeri genişletilebilir hale gelir.
+    - Open/Closed Principle desteklenir.
+    - TokenizerFactory sadece registry üzerinden çalışır.
+    - Yeni tokenizer'lar sisteme otomatik dahil edilebilir. (Sistem otomatik genişler (extensible))
 
-✔ Yeni tokenizer eklemek için sadece yeni bir dosya yazılır  
-✔ Factory veya __init__ dosyasına dokunulmaz  
-✔ Sistem otomatik genişler (extensible)  
-✔ Open/Closed Principle sağlanır  
+Discovery mekanizması:
+    tokenizer_workshop.tokenizers.discovery modülü, tokenizers package altındaki
+    tokenizer modüllerini otomatik olarak import eder.
 
----
+    Import sırasında tokenizer class'ları üzerindeki @register_tokenizer(...)
+    decorator'ları çalışır ve class'lar TokenizerRegistry içine kaydedilir.
 
-Discovery Mekanizması
+Örnek:
 
-tokenizer_workshop.tokenizers.discovery modülü:
-
-- tokenizers package altındaki modülleri tarar
-- tokenizer dosyalarını otomatik import eder
-- import sırasında decorator'ların çalışmasını sağlar
-
-Bu mekanizma sayesinde:
-
-    RegexTokenizer yaz → @register_tokenizer ekle → sistem otomatik tanır
-
----
-
-Bu dosyanın rolü nedir?
-
-Bu dosya:
-
-- public API yüzeyini tanımlar
-- dış modüllerin erişebileceği temel yapı taşlarını expose eder
-- tokenizer implementasyonlarını değil, altyapıyı export eder
-
----
-
-Export edilenler:
-
-BaseTokenizer:
-    Tüm tokenizer'ların uyması gereken abstract base class.
-
-TokenizerRegistry:
-    Tokenizer class'larının runtime'da tutulduğu merkezi registry.
-
-register_tokenizer:
-    Tokenizer class'larını registry'ye eklemek için kullanılan decorator.
-
-auto_import_tokenizers:
-    Tokenizer modüllerini otomatik yükleyen discovery fonksiyonu.
-
----
-
-Örnek kullanım:
-
-Yeni tokenizer eklemek:
-
-    @register_tokenizer("my_tokenizer")
-    class MyTokenizer(BaseTokenizer):
+    @register_tokenizer("subword")
+    class SubwordTokenizer(BaseTokenizer):
         ...
 
-Başka hiçbir yere dokunmana gerek yok.
+Bu class ilgili modül import edildiğinde registry'ye eklenir.
+Factory daha sonra bu tokenizer'ı şu şekilde oluşturabilir:
 
----
+    TokenizerFactory.create("subword")
+
+Bu dosyanın sorumluluğu:
+    - tokenizer implementasyonlarını topluca import etmek değildir
+    - ortak altyapı bileşenlerini public API olarak expose etmektir
+
+Export edilen public bileşenler:
+    BaseTokenizer:
+        Tüm tokenizer implementasyonlarının uyması gereken temel base class.
+
+   TokenizerRegistry:
+        Tokenizer class'larının runtime'da tutulduğu merkezi registry.
+
+    register_tokenizer:
+        Tokenizer class'larını registry'ye ekleyen decorator.
+
+    auto_import_tokenizers:
+        Tokenizer modüllerini otomatik import eden discovery fonksiyonu.
 
 Sonuç:
-
-Bu yapı sayesinde sistem:
-
-- plug-in benzeri çalışır
-- genişletilebilir (extensible)
-- düşük bağımlılıklıdır (loosely coupled)
-- bakım dostudur (maintainable)
+    Bu yapı sayesinde tokenizer sistemi daha genişletilebilir, bakım dostu
+    ve düşük bağımlılıklı bir mimariye sahip olur.
 """
 
 from tokenizer_workshop.tokenizers.base import BaseTokenizer
