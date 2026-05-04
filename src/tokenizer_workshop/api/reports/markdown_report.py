@@ -1,98 +1,65 @@
+"""
+Markdown rapor oluşturucu.
+
+Tokenizer karşılaştırma sonuçlarını Markdown gösterimi için optimize edilmiş
+bir rapora dönüştürür. Domain mantığı `base.py`'da paylaşılır; bu modül
+yalnızca markdown formatlamadan sorumludur.
+
+Bölümler text/PDF raporlarıyla tutarlı bir çekirdek paylaşır; ek olarak
+markdown'a özgü daha zengin "Categorical Recommendation" bölümü içerir.
+"""
+
 from __future__ import annotations
 
 from typing import Any
 
+from .base import (
+    TOKENIZER_GUIDANCE,
+    TRADEOFF_CLOSING,
+    TRADEOFF_LINES,
+    Winners,
+    compression_gain_percent,
+    compute_winners,
+    metric as _metric,
+    safe_float as _safe_float,
+    tokenizer_quality_score,
+)
 from .helpers import (
     extract_compare_payload,
     format_number,
     format_reconstruction,
     format_top_tokens,
     get_metrics,
+    interpret_similarity_level,
     latency_microseconds,
     safe_str,
     truncate_list,
     utc_now_iso,
-    is_reconstruction_match,
-    normalize_text,
-    wide_hr,
 )
 
 
-def _safe_float(value: Any, fallback: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return fallback
+# ---------------------------------------------------------------------------
+# Düşük seviye yardımcılar
+# ---------------------------------------------------------------------------
+
+def _name(item: dict[str, Any] | None) -> str:
+    """Tokenizer adını güvenli şekilde okur."""
+    if item is None:
+        return ""
+    return safe_str(item.get("tokenizer_name"))
 
 
-def _metric(item: dict[str, Any], key: str, fallback: Any = 0) -> Any:
-    metrics = get_metrics(item)
-    return metrics.get(key, item.get(key, fallback))
+def _bullet(label: str, value: Any) -> str:
+    """Tutarlı `- **Label:** value` bullet üretir."""
+    return f"- **{label}:** {value}"
 
 
-def _best_by_metric(
-    results: list[dict[str, Any]],
-    metric_key: str,
-    *,
-    reverse: bool = True,
-) -> dict[str, Any] | None:
-    if not results:
-        return None
-
-    return sorted(
-        results,
-        key=lambda item: _safe_float(_metric(item, metric_key)),
-        reverse=reverse,
-    )[0]
-
-
-def _compression_gain_percent(item: dict[str, Any], source_text: str) -> float:
-    source_length = len(source_text)
-
-    if source_length == 0:
-        return 0.0
-
-    token_count = _safe_float(_metric(item, "token_count"))
-    return (1 - token_count / source_length) * 100
-
-
-def _pairwise_similarity_level(overlap_ratio: Any) -> str:
-    ratio = _safe_float(overlap_ratio)
-
-    if ratio == 0:
-        return "Completely Different"
-
-    if ratio < 0.25:
-        return "Highly Different"
-
-    if ratio < 0.60:
-        return "Moderately Similar"
-
-    return "Highly Similar"
-
-
-def _pairwise_observation(overlap_ratio: Any) -> str:
-    level = _pairwise_similarity_level(overlap_ratio)
-
-    observations = {
-        "Completely Different": (
-            "No shared tokens were found, indicating completely different tokenization strategies."
-        ),
-        "Highly Different": (
-            "Minimal overlap exists; tokenization strategies differ significantly."
-        ),
-        "Moderately Similar": (
-            "Moderate overlap suggests partial similarity in segmentation."
-        ),
-        "Highly Similar": (
-            "High overlap indicates similar tokenization behavior."
-        ),
-    }
-
-    return observations[level]
-
+# ---------------------------------------------------------------------------
+# Bölümler
+# ---------------------------------------------------------------------------
 
 def _append_header(lines: list[str], total: int) -> None:
+    """Rapor başlığı ve genel meta bilgileri."""
     lines.extend(
         [
             "# Tokenizer Evaluation Report",
@@ -105,6 +72,7 @@ def _append_header(lines: list[str], total: int) -> None:
 
 
 def _append_source_text(lines: list[str], text: str) -> None:
+    """Kaynak metin bölümü."""
     lines.extend(["## Source Text", ""])
 
     if text:
@@ -112,8 +80,19 @@ def _append_source_text(lines: list[str], text: str) -> None:
     else:
         lines.extend(["_No source text provided._", ""])
 
+    # Çok kısa girdiler için uyarı.
+    if text and len(text) < 100:
+        lines.extend(
+            [
+                f"> ⚠ **Note:** Source text is short ({len(text)} characters). "
+                "Findings on small inputs may not generalize.",
+                "",
+            ]
+        )
+
 
 def _append_overview(lines: list[str], total: int) -> None:
+    """Raporun genel bakış bölümü."""
     lines.extend(
         [
             "## Overview",
@@ -131,37 +110,27 @@ def _append_overview(lines: list[str], total: int) -> None:
 def _append_executive_summary(
     lines: list[str],
     results: list[dict[str, Any]],
+    winners: Winners,
 ) -> None:
+    """Yürütücü özet bölümü."""
     lines.extend(["## Executive Summary", ""])
 
     if not results:
         lines.extend(["_No executive summary available._", ""])
         return
 
-    best_efficiency = _best_by_metric(results, "efficiency_score", reverse=True)
-    fastest = _best_by_metric(results, "latency_seconds", reverse=False)
-    lowest_token = _best_by_metric(results, "token_count", reverse=False)
-    highest_token = _best_by_metric(results, "token_count", reverse=True)
+    best_overall = max(results, key=tokenizer_quality_score, default=None)
 
-    if best_efficiency:
-        lines.append(
-            f"- **Best overall tokenizer:** {safe_str(best_efficiency.get('tokenizer_name'))}"
-        )
+    rows: list[tuple[dict[str, Any] | None, str]] = [
+        (best_overall, "Best overall tokenizer"),
+        (winners.fastest, "Fastest tokenizer"),
+        (winners.lowest_token, "Shortest sequence tokenizer"),
+        (winners.highest_token, "Most granular tokenizer"),
+    ]
 
-    if fastest:
-        lines.append(
-            f"- **Fastest tokenizer:** {safe_str(fastest.get('tokenizer_name'))}"
-        )
-
-    if lowest_token:
-        lines.append(
-            f"- **Shortest sequence tokenizer:** {safe_str(lowest_token.get('tokenizer_name'))}"
-        )
-
-    if highest_token:
-        lines.append(
-            f"- **Most granular tokenizer:** {safe_str(highest_token.get('tokenizer_name'))}"
-        )
+    for item, label in rows:
+        if item:
+            lines.append(_bullet(label, _name(item)))
 
     lines.extend(
         [
@@ -180,6 +149,7 @@ def _append_summary_table(
     results: list[dict[str, Any]],
     source_text: str,
 ) -> None:
+    """Özet tablo."""
     lines.extend(
         [
             "## Summary Table",
@@ -198,10 +168,10 @@ def _append_summary_table(
 
     for item in results:
         metrics = get_metrics(item)
-        gain = _compression_gain_percent(item, source_text)
+        gain = compression_gain_percent(item, source_text)
 
         lines.append(
-            f"| {safe_str(item.get('tokenizer_name'))} "
+            f"| {_name(item)} "
             f"| {_metric(item, 'token_count')} "
             f"| {_metric(item, 'unique_token_count', item.get('vocab_size', 0))} "
             f"| {format_number(metrics.get('unique_ratio'), 2)} "
@@ -217,112 +187,89 @@ def _append_summary_table(
     lines.append("")
 
 
-def _append_key_insights(lines: list[str], results: list[dict[str, Any]]) -> None:
+def _append_key_insights(lines: list[str], winners: Winners) -> None:
+    """Anahtar metrik bulguları."""
     lines.extend(["## Key Insights", ""])
 
-    if not results:
+    if winners.best_efficiency is None:
         lines.extend(["_No insights available._", ""])
         return
 
-    lowest_token = _best_by_metric(results, "token_count", reverse=False)
-    highest_token = _best_by_metric(results, "token_count", reverse=True)
-    best_efficiency = _best_by_metric(results, "efficiency_score", reverse=True)
-    highest_unique = _best_by_metric(results, "unique_token_count", reverse=True)
-    fastest = _best_by_metric(results, "latency_seconds", reverse=False)
-    best_compression = _best_by_metric(results, "compression_ratio", reverse=True)
+    insights: list[tuple[dict[str, Any] | None, str, str]] = [
+        (
+            winners.lowest_token, "Lowest token count",
+            f"({_metric(winners.lowest_token or {}, 'token_count')})",
+        ),
+        (
+            winners.highest_token, "Highest token count",
+            f"({_metric(winners.highest_token or {}, 'token_count')})",
+        ),
+        (
+            winners.best_efficiency, "Best efficiency score",
+            f"({format_number(_metric(winners.best_efficiency or {}, 'efficiency_score'), 2)})",
+        ),
+        (
+            winners.highest_unique, "Highest unique token count",
+            f"({_metric(winners.highest_unique or {}, 'unique_token_count')})",
+        ),
+        (
+            winners.fastest, "Fastest tokenizer",
+            f"({latency_microseconds(get_metrics(winners.fastest or {}))} µs)",
+        ),
+        (
+            winners.best_compression, "Best compression ratio",
+            f"({format_number(_metric(winners.best_compression or {}, 'compression_ratio'), 2)})",
+        ),
+    ]
 
-    if lowest_token:
-        lines.append(
-            f"- **Lowest token count:** {safe_str(lowest_token.get('tokenizer_name'))} "
-            f"({_metric(lowest_token, 'token_count')})"
-        )
-
-    if highest_token:
-        lines.append(
-            f"- **Highest token count:** {safe_str(highest_token.get('tokenizer_name'))} "
-            f"({_metric(highest_token, 'token_count')})"
-        )
-
-    if best_efficiency:
-        lines.append(
-            f"- **Best efficiency score:** {safe_str(best_efficiency.get('tokenizer_name'))} "
-            f"({format_number(_metric(best_efficiency, 'efficiency_score'), 2)})"
-        )
-
-    if highest_unique:
-        lines.append(
-            f"- **Highest unique token count:** {safe_str(highest_unique.get('tokenizer_name'))} "
-            f"({_metric(highest_unique, 'unique_token_count')})"
-        )
-
-    if fastest:
-        lines.append(
-            f"- **Fastest tokenizer:** {safe_str(fastest.get('tokenizer_name'))} "
-            f"({latency_microseconds(get_metrics(fastest))} µs)"
-        )
-
-    if best_compression:
-        lines.append(
-            f"- **Best compression ratio:** {safe_str(best_compression.get('tokenizer_name'))} "
-            f"({format_number(_metric(best_compression, 'compression_ratio'), 2)})"
-        )
+    for item, label, suffix in insights:
+        if item:
+            lines.append(f"- **{label}:** {_name(item)} {suffix}")
 
     lines.append("")
 
 
-def _append_interpretation(lines: list[str], results: list[dict[str, Any]]) -> None:
+def _append_interpretation(lines: list[str], winners: Winners) -> None:
+    """Bulguların kısa yorumu."""
     lines.extend(["## Interpretation", ""])
 
-    if not results:
+    if winners.best_efficiency is None:
         lines.extend(["_No interpretation available._", ""])
         return
 
-    lowest_token = _best_by_metric(results, "token_count", reverse=False)
-    highest_token = _best_by_metric(results, "token_count", reverse=True)
-    best_efficiency = _best_by_metric(results, "efficiency_score", reverse=True)
-    fastest = _best_by_metric(results, "latency_seconds", reverse=False)
-
-    if lowest_token:
+    if winners.lowest_token:
         lines.extend(
             [
-                (
-                    f"The **{safe_str(lowest_token.get('tokenizer_name'))}** tokenizer produces the most compact "
-                    f"segmentation with **{_metric(lowest_token, 'token_count')} tokens**."
-                ),
+                f"The **{_name(winners.lowest_token)}** tokenizer produces the most compact "
+                f"segmentation with **{_metric(winners.lowest_token, 'token_count')} tokens**.",
                 "",
             ]
         )
 
-    if highest_token:
+    if winners.highest_token:
         lines.extend(
             [
-                (
-                    f"The **{safe_str(highest_token.get('tokenizer_name'))}** tokenizer produces the most granular "
-                    f"segmentation with **{_metric(highest_token, 'token_count')} tokens**."
-                ),
+                f"The **{_name(winners.highest_token)}** tokenizer produces the most granular "
+                f"segmentation with **{_metric(winners.highest_token, 'token_count')} tokens**.",
                 "",
             ]
         )
 
-    if best_efficiency:
+    if winners.best_efficiency:
+        eff = format_number(_metric(winners.best_efficiency, "efficiency_score"), 2)
         lines.extend(
             [
-                (
-                    f"The **{safe_str(best_efficiency.get('tokenizer_name'))}** tokenizer achieves the strongest "
-                    f"efficiency score (**{format_number(_metric(best_efficiency, 'efficiency_score'), 2)}**), "
-                    "which indicates better compression behavior per token."
-                ),
+                f"The **{_name(winners.best_efficiency)}** tokenizer achieves the strongest "
+                f"efficiency score (**{eff}**), which indicates better compression behavior per token.",
                 "",
             ]
         )
 
-    if fastest:
+    if winners.fastest:
+        lat = latency_microseconds(get_metrics(winners.fastest))
         lines.extend(
             [
-                (
-                    f"The fastest tokenizer is **{safe_str(fastest.get('tokenizer_name'))}** "
-                    f"with **{latency_microseconds(get_metrics(fastest))} µs** latency."
-                ),
+                f"The fastest tokenizer is **{_name(winners.fastest)}** with **{lat} µs** latency.",
                 "",
             ]
         )
@@ -330,124 +277,65 @@ def _append_interpretation(lines: list[str], results: list[dict[str, Any]]) -> N
     lines.extend(
         [
             (
-                "Overall, tokenizer choice directly affects sequence length, processing cost, semantic granularity, "
-                "compression behavior, and downstream model efficiency."
+                "Overall, tokenizer choice directly affects sequence length, processing cost, "
+                "semantic granularity, compression behavior, and downstream model efficiency."
             ),
             "",
         ]
     )
 
 
-def _append_recommendation(lines: list[str], results: list[dict[str, Any]]) -> None:
+def _append_recommendation(
+    lines: list[str],
+    results: list[dict[str, Any]],
+    winners: Winners,
+) -> None:
+    """
+    Bölümlü öneri:
+        1. Genel kazananlardan kategori önerileri (en iyi efficiency, fastest, lowest token)
+        2. `TOKENIZER_GUIDANCE`'tan statik kullanım rehberi
+        3. Trade-off açıklamaları
+    """
     lines.extend(["## Recommendation", ""])
 
     if not results:
-        lines.append("No tokenizer results are available for recommendation.")
-        lines.append("")
+        lines.extend(["No tokenizer results are available for recommendation.", ""])
         return
-
-    best_efficiency = _best_by_metric(results, "efficiency_score", reverse=True)
-    fastest = _best_by_metric(results, "latency_seconds", reverse=False)
-    lowest_token = _best_by_metric(results, "token_count", reverse=False)
 
     lines.extend(["### When to use each tokenizer", ""])
 
-    if best_efficiency:
-        lines.append(
-            f"- **{safe_str(best_efficiency.get('tokenizer_name'))}** → best when compression and token efficiency matter."
-        )
+    added: set[str] = set()
 
-    if fastest:
-        lines.append(
-            f"- **{safe_str(fastest.get('tokenizer_name'))}** → best when low-latency tokenization matters."
-        )
+    def add(name: str, text: str) -> None:
+        key = name.lower()
+        if key and key not in added:
+            lines.append(f"- **{name}** → {text}")
+            added.add(key)
 
-    if lowest_token:
-        lines.append(
-            f"- **{safe_str(lowest_token.get('tokenizer_name'))}** → best when minimizing total token count matters."
+    if winners.best_efficiency:
+        add(
+            _name(winners.best_efficiency),
+            "best when compression and token efficiency matter.",
+        )
+    if winners.fastest:
+        add(_name(winners.fastest), "best when low-latency tokenization matters.")
+    if winners.lowest_token:
+        add(
+            _name(winners.lowest_token),
+            "best when minimizing total token count matters.",
         )
 
     for item in results:
-        name = safe_str(item.get("tokenizer_name")).lower()
+        name = _name(item)
+        guidance = TOKENIZER_GUIDANCE.get(name.lower())
+        if guidance:
+            add(name, guidance)
 
-        if name == "word":
-            lines.append("• word      : best when compression and readability matter")
+    lines.extend(["", "### Trade-offs", ""])
+    for line in TRADEOFF_LINES:
+        lines.append(f"- {line}")
 
-        elif name == "byte":
-            lines.append("• byte      : best when ultra-fast tokenization is required")
-
-        elif name == "char":
-            lines.append("• char      : best for debugging and maximum granularity")
-
-        elif name == "regex":
-            lines.append("• regex     : best for custom tokenization patterns and domain-specific text")
-
-        elif name == "byte_bpe":
-            lines.append("• byte_bpe  : best for handling complex or unseen text")
-
-        elif name == "bpe":
-            lines.append("• bpe       : balanced option between compression and flexibility")
-
-        elif name == "regex_bpe":
-            lines.append("• regex_bpe : best for custom tokenization patterns and domain-specific text")
-
-        elif name == "ngram":
-            lines.append("• ngram      : best for capturing local context and multi-word expressions")
-
-        elif name == "wordpiece":
-            lines.append("• wordpiece  : best for subword tokenization with a fixed vocabulary")
-
-        elif name == "unigram":
-            lines.append("• unigram    : best for probabilistic subword tokenization with a fixed vocabulary")
-
-        elif name == "sentencepiece":
-            lines.append("• sentencepiece : best for flexible subword tokenization with a fixed vocabulary")
-
-        elif name == "white_space":
-            lines.append(
-                "• white_space : best for simple baseline tokenization and debugging"
-            )
-
-        elif name == "punctuation":
-            lines.append(
-                "• punctuation : best for separating words and punctuation into distinct tokens"
-            )
-
-        elif name == "subword":
-            lines.append("• subword    : best for fixed-size subword tokenization")
-
-        elif name == "morpheme":
-            lines.append("• morpheme    : best for linguistically motivated subword tokenization")
-
-        elif name == "byte_level_bpe":
-            lines.append("• byte_level_bpe  : best for handling complex or unseen text")   
-
-        elif name == "pretrained":
-            lines.append("• pretrained : best for leveraging existing tokenization models") 
-
-    lines.extend(
-        [
-            "",
-            "Trade-offs:",
-            "• Character-level tokenization provides high granularity but usually increases sequence length.",
-            "• Word-level tokenization is compact but language-dependent.",
-            "• Subword/BPE tokenization balances flexibility and compression.",
-            "• Byte-level tokenization ensures full coverage of any input.",
-            "• Regex-based tokenization allows for custom patterns and domain-specific text handling.",
-            "• N-gram tokenization captures local context and multi-word expressions, which can be beneficial for certain languages and tasks, but may increase token count compared to word-level tokenization.",
-            "• WordPiece tokenization is effective for subword tokenization with a fixed vocabulary, commonly used in transformer models, but may require careful handling of unknown tokens and vocabulary management.",
-            "• Unigram tokenization is effective for probabilistic subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
-            "• SentencePiece tokenization is effective for flexible subword tokenization with a fixed vocabulary, balancing flexibility and compression.",
-            "• Whitespace tokenization is a simple baseline that can be useful for debugging and educational purposes, but it may not provide the best performance or compression for most real-world applications.",
-            "• Punctuation tokenization is effective for separating words and punctuation into distinct tokens, which can improve readability and downstream processing. However, it may increase token count and latency compared to simpler tokenization strategies.",
-            "• Subword tokenization is effective for fixed-size subword tokenization, balancing flexibility and compression.",
-            "• Morpheme tokenization is effective for linguistically motivated subword tokenization, capturing meaningful units of language. However, it may require language-specific resources and may not always align with the needs of downstream models.",
-            "• Byte-level BPE tokenization is effective for handling complex or unseen text, ensuring full coverage of any input.", 
-            "• Pretrained tokenization is effective for leveraging existing tokenization models, providing strong performance on many tasks. However, it may require additional dependencies and may not be customizable for specific domains or languages.",
-            "",
-            "Ultimately, the best tokenizer choice depends on the specific requirements of the application, including the desired balance between compression, speed, interpretability, and robustness to diverse input types.",
-        ]
-    )
+    lines.extend(["", TRADEOFF_CLOSING, ""])
 
 
 def _append_tokenizer_details(
@@ -455,6 +343,7 @@ def _append_tokenizer_details(
     results: list[dict[str, Any]],
     source_text: str,
 ) -> None:
+    """Her tokenizer için detaylı bölüm."""
     lines.extend(["## Tokenizer Details", ""])
 
     if not results:
@@ -462,7 +351,7 @@ def _append_tokenizer_details(
         return
 
     for index, item in enumerate(results, start=1):
-        tokenizer_name = safe_str(item.get("tokenizer_name"))
+        tokenizer_name = _name(item)
         tokens = item.get("tokens", [])
         metrics = get_metrics(item)
 
@@ -470,35 +359,55 @@ def _append_tokenizer_details(
             [
                 f"### {index}. {tokenizer_name}",
                 "",
-                f"- **Token Count:** {_metric(item, 'token_count')}",
-                f"- **Vocab Size:** {_metric(item, 'unique_token_count', item.get('vocab_size', 0))}",
-                f"- **Token Preview:** `{truncate_list(tokens)}`",
-                f"- **Unique Token Count:** {_metric(item, 'unique_token_count', '-')}",
-                f"- **Unique Ratio:** {format_number(metrics.get('unique_ratio'), 2)}",
-                f"- **Average Token Length:** {format_number(metrics.get('average_token_length'), 2)}",
-                (
-                    f"- **Min / Max Token Length:** "
-                    f"{metrics.get('min_token_length', '-')} / {metrics.get('max_token_length', '-')}"
+                _bullet("Token Count", _metric(item, "token_count")),
+                _bullet(
+                    "Vocab Size",
+                    _metric(item, "unique_token_count", item.get("vocab_size", 0)),
                 ),
-                f"- **Avg Chars / Token:** {format_number(metrics.get('avg_chars_per_token'), 2)}",
-                (
-                    f"- **Unknown Tokens:** {metrics.get('unknown_count', '-')} "
-                    f"({format_number(metrics.get('unknown_rate'), 2)})"
+                _bullet("Token Preview", f"`{truncate_list(tokens)}`"),
+                _bullet("Unique Token Count", _metric(item, "unique_token_count", "-")),
+                _bullet("Unique Ratio", format_number(metrics.get("unique_ratio"), 2)),
+                _bullet(
+                    "Average Token Length",
+                    format_number(metrics.get("average_token_length"), 2),
                 ),
-                (
-                    f"- **Latency:** {latency_microseconds(metrics)} µs "
-                    f"({format_number(metrics.get('latency_seconds'), 6)} s)"
+                _bullet(
+                    "Min / Max Token Length",
+                    f"{metrics.get('min_token_length', '-')} / "
+                    f"{metrics.get('max_token_length', '-')}",
                 ),
-                f"- **Latency / Token:** {format_number(metrics.get('latency_per_token'), 6)}",
-                f"- **Efficiency Score:** {format_number(metrics.get('efficiency_score'), 2)}",
-                f"- **Compression Ratio:** {format_number(metrics.get('compression_ratio'), 2)}",
+                _bullet(
+                    "Avg Chars / Token",
+                    format_number(metrics.get("avg_chars_per_token"), 2),
+                ),
+                _bullet(
+                    "Unknown Tokens",
+                    f"{metrics.get('unknown_count', '-')} "
+                    f"({format_number(metrics.get('unknown_rate'), 2)})",
+                ),
+                _bullet(
+                    "Latency",
+                    f"{latency_microseconds(metrics)} µs "
+                    f"({format_number(metrics.get('latency_seconds'), 6)} s)",
+                ),
+                _bullet(
+                    "Latency / Token",
+                    format_number(metrics.get("latency_per_token"), 6),
+                ),
+                _bullet(
+                    "Efficiency Score",
+                    format_number(metrics.get("efficiency_score"), 2),
+                ),
+                _bullet(
+                    "Compression Ratio",
+                    format_number(metrics.get("compression_ratio"), 2),
+                ),
                 "",
                 "**Top Tokens:**",
             ]
         )
 
         top_tokens = format_top_tokens(metrics.get("top_tokens"))
-
         if top_tokens:
             for token_line in top_tokens:
                 lines.append(f"- `{token_line.strip()}`")
@@ -508,7 +417,6 @@ def _append_tokenizer_details(
         lines.extend(["", "**Token Length Distribution:**"])
 
         distribution = metrics.get("token_length_distribution")
-
         if isinstance(distribution, dict) and distribution:
             for length, count in sorted(
                 distribution.items(),
@@ -521,7 +429,6 @@ def _append_tokenizer_details(
         lines.extend(["", "**Reconstruction:**"])
 
         reconstruction = format_reconstruction(metrics, original_text=source_text)
-
         if reconstruction:
             for reconstruction_line in reconstruction:
                 lines.append(f"- {reconstruction_line.strip()}")
@@ -532,35 +439,39 @@ def _append_tokenizer_details(
 
 
 def _append_ranking(lines: list[str], results: list[dict[str, Any]]) -> None:
+    """
+    Bileşik kalite skoruna göre genel sıralama.
+
+    `tokenizer_quality_score` text/PDF raporlarıyla aynı mantığı kullanır.
+    """
     lines.extend(["## Overall Ranking", ""])
 
     if not results:
         lines.extend(["_No ranking available._", ""])
         return
 
-    ranking = sorted(
-        results,
-        key=lambda item: (
-            _safe_float(_metric(item, "efficiency_score")),
-            -_safe_float(_metric(item, "latency_seconds")),
-        ),
-        reverse=True,
-    )
-
     lines.extend(
         [
-            "Ranking is based primarily on **efficiency score**, with **latency** used as a secondary tie-breaker.",
+            (
+                "Ranking is based on a composite quality score including "
+                "**efficiency**, **latency**, **unknown rate**, reconstruction quality, "
+                "and structural penalties."
+            ),
             "",
         ]
     )
 
+    ranking = sorted(results, key=tokenizer_quality_score, reverse=True)
+
     for index, item in enumerate(ranking, start=1):
         metrics = get_metrics(item)
+        score = format_number(tokenizer_quality_score(item), 2)
+        eff = format_number(metrics.get("efficiency_score"), 2)
+        lat = latency_microseconds(metrics)
 
         lines.append(
-            f"{index}. **{safe_str(item.get('tokenizer_name'))}** "
-            f"(eff={format_number(metrics.get('efficiency_score'), 2)}, "
-            f"latency={latency_microseconds(metrics)} µs)"
+            f"{index}. **{_name(item)}** "
+            f"(score={score}, eff={eff}, latency={lat} µs)"
         )
 
     lines.append("")
@@ -570,6 +481,12 @@ def _append_pairwise_comparisons(
     lines: list[str],
     pairwise: list[dict[str, Any]],
 ) -> None:
+    """
+    Pairwise tokenizer karşılaştırmaları.
+
+    `similarity_level` pipeline tarafından hesaplanır; bu builder yalnızca
+    onu gösterir ve yorumlar.
+    """
     lines.extend(["## Pairwise Comparisons", ""])
 
     if not pairwise:
@@ -580,60 +497,150 @@ def _append_pairwise_comparisons(
         left_name = safe_str(item.get("left_name"))
         right_name = safe_str(item.get("right_name"))
         ratio = item.get("overlap_ratio")
+        similarity_level = safe_str(
+            item.get("similarity_level"),
+            fallback="Unknown",
+        )
 
         lines.extend(
             [
                 f"### {left_name} ↔ {right_name}",
                 "",
-                f"- **Overlap Ratio:** {format_number(ratio, 2)}",
-                f"- **Semantic Difference Level:** {_pairwise_similarity_level(ratio)}",
-                f"- **Common Tokens:** `{truncate_list(item.get('common_tokens', []))}`",
-                f"- **Only In {left_name}:** `{truncate_list(item.get('unique_to_left', []))}`",
-                f"- **Only In {right_name}:** `{truncate_list(item.get('unique_to_right', []))}`",
-                "- **Observation:**",
-                f"  - {_pairwise_observation(ratio)}",
+                _bullet("Overlap Ratio", format_number(ratio, 2)),
+                _bullet("Similarity Level", similarity_level),
+                _bullet("Interpretation", interpret_similarity_level(similarity_level)),
+                _bullet(
+                    "Common Tokens",
+                    f"`{truncate_list(item.get('common_tokens', []))}`",
+                ),
+                _bullet(
+                    f"Only In {left_name}",
+                    f"`{truncate_list(item.get('unique_to_left', []))}`",
+                ),
+                _bullet(
+                    f"Only In {right_name}",
+                    f"`{truncate_list(item.get('unique_to_right', []))}`",
+                ),
                 "",
             ]
         )
 
 
+def _append_categorical_recommendation(
+    lines: list[str],
+    winners: Winners,
+) -> None:
+    """
+    Kategori bazlı öneri.
+
+    Tek bir tokenizer'ı mutlak en iyi ilan etmek yerine kullanım senaryosuna
+    göre kategori bazlı öneri üretir. "Best balanced choice" bölümü, eski
+    `Final Recommendation` bölümünün metrik dump'ını da içerir.
+    """
+    lines.extend(["## Categorical Recommendation", ""])
+
+    if winners.best_balance is None:
+        lines.extend(["No tokenizer recommendation available.", ""])
+        return
+
+    lines.extend(
+        [
+            "Tokenizer choice depends on the target use case. "
+            "For this input, the recommended options are:",
+            "",
+        ]
+    )
+
+    # Best balanced choice — eski Final Recommendation buraya gömüldü.
+    balanced = winners.best_balance
+    metrics = get_metrics(balanced)
+    lines.extend(
+        [
+            f"- **Best balanced choice:** `{_name(balanced)}` "
+            f"(efficiency={format_number(metrics.get('efficiency_score'), 2)}, "
+            f"latency={latency_microseconds(metrics)} µs)",
+        ]
+    )
+
+    if winners.fastest:
+        fast_metrics = get_metrics(winners.fastest)
+        lines.append(
+            f"- **Best for speed:** `{_name(winners.fastest)}` "
+            f"(latency={latency_microseconds(fast_metrics)} µs)"
+        )
+
+    if winners.best_compression:
+        lines.append(
+            f"- **Best for compression:** `{_name(winners.best_compression)}` "
+            f"(compression={format_number(_metric(winners.best_compression, 'compression_ratio'), 2)})"
+        )
+
+    if winners.lowest_unknown:
+        lines.append(
+            f"- **Best for low unknown-token risk:** `{_name(winners.lowest_unknown)}` "
+            f"(unknown_rate={format_number(_metric(winners.lowest_unknown, 'unknown_rate'), 2)})"
+        )
+
+    if winners.most_readable:
+        lines.append(
+            f"- **Best for readability/debugging:** `{_name(winners.most_readable)}` "
+            f"(tokens={_metric(winners.most_readable, 'token_count')})"
+        )
+
+    # Balanced choice için ek metrik dump (eski Final Recommendation içeriği)
+    lines.extend(
+        [
+            "",
+            f"### Balanced choice metrics: `{_name(balanced)}`",
+            "",
+            _bullet("Efficiency Score", format_number(metrics.get("efficiency_score"), 2)),
+            _bullet(
+                "Compression Ratio",
+                format_number(metrics.get("compression_ratio"), 2),
+            ),
+            _bullet("Unknown Rate", format_number(metrics.get("unknown_rate"), 2)),
+            _bullet("Latency", f"{latency_microseconds(metrics)} µs"),
+            "",
+            (
+                "Use the balanced recommendation as the default. If the application has a "
+                "strict priority such as speed, compression, readability, or robustness, "
+                "prefer the category-specific recommendation above instead."
+            ),
+            "",
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
 def build_markdown_report(compare_result: dict[str, Any]) -> str:
     """
-    Build a production-ready Markdown report from tokenizer comparison results.
+    Tokenizer karşılaştırma sonuçlarından production-ready bir Markdown
+    raporu üretir.
 
-    The report includes:
-    - source text,
-    - executive summary,
-    - summary metrics,
-    - key insights,
-    - interpretation,
-    - recommendation,
-    - tokenizer-level details,
-    - ranking,
-    - pairwise comparisons.
-
-    Args:
-        compare_result:
-            Raw comparison result produced by the tokenizer evaluation pipeline.
-
-    Returns:
-        Markdown report as a string.
+    Bölümler text/PDF raporlarıyla tutarlı bir çekirdek paylaşır:
+    header, source text, overview, executive summary, summary table,
+    key insights, interpretation, recommendation, tokenizer details,
+    overall ranking, pairwise comparisons, categorical recommendation.
     """
-
     text, total, results, pairwise = extract_compare_payload(compare_result)
+    winners = compute_winners(results)
 
     lines: list[str] = []
 
     _append_header(lines, total)
     _append_source_text(lines, text)
     _append_overview(lines, total)
-    _append_executive_summary(lines, results)
+    _append_executive_summary(lines, results, winners)
     _append_summary_table(lines, results, text)
-    _append_key_insights(lines, results)
-    _append_interpretation(lines, results)
-    _append_recommendation(lines, results)
+    _append_key_insights(lines, winners)
+    _append_interpretation(lines, winners)
+    _append_recommendation(lines, results, winners)
     _append_tokenizer_details(lines, results, text)
     _append_ranking(lines, results)
     _append_pairwise_comparisons(lines, pairwise)
+    _append_categorical_recommendation(lines, winners)
 
     return "\n".join(lines)
