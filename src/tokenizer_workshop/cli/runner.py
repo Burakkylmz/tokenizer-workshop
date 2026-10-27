@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+import tempfile
+from pathlib import Path
+
 """
 cli/runner.py
 
@@ -119,9 +123,21 @@ class CLIComparisonRunner:
 
         print("\nComparison result:\n")
 
+        report_path = self.report_path
+        output_dir = os.getenv("TOKENIZER_WORKSHOP_OUTPUT_DIR")
+        if output_dir:
+            directory = Path(output_dir)
+            directory.mkdir(parents=True, exist_ok=True)
+            # Reserve a distinct filename for every comparison, including
+            # multiple comparisons in one CLI session or concurrent sessions.
+            fd, report_path = tempfile.mkstemp(
+                prefix="report-", suffix=".md", dir=directory
+            )
+            os.close(fd)
+
         self.manager.print_comparison_result(
             result,
-            save_path=self.report_path,
+            save_path=report_path,
         )
 
-        print(f"\nReport saved to: {self.report_path}")
+        print(f"\nReport saved to: {report_path}")

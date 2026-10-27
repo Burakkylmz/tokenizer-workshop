@@ -10,3 +10,9 @@ wheels/
 .venv
 
 .idea/
+
+.env
+.env.*
+!.env.example
+results/
+.pytest_cache/

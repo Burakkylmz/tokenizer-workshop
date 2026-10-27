@@ -160,7 +160,7 @@ def main() -> None:
     # CLIController, kullanıcı etkileşimlerini yönetir ve runner'ı kullanarak karşılaştırma sürecini başlatır.
     # CLIController, kullanıcı arayüzü ile karşılaştırma mantığını birbirinden ayırır.
     # Bu tasarım, kodun daha modüler, test edilebilir ve genişletilebilir olmasını sağlar.
-    ontroller = CLIController(
+    controller = CLIController(
         runner=runner, # CLIComparisonRunner instance'ını controller'a verilir
         tokenizer_config=TOKENIZER_CONFIG, # Tokenizer konfigürasyonu controller'a verilir
         default_compare_text=COMPARE_TEXT, # Karşılaştırma için kullanılacak metin controller'a verilir

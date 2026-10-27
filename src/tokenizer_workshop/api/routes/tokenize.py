@@ -23,6 +23,7 @@ from pathlib import Path
 import tempfile
 
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from tokenizer_workshop.api.reports import (
     build_markdown_report,
@@ -336,15 +337,19 @@ def generate_pdf_report_endpoint(request: ReportRequest) -> FileResponse:
             "pairwise_comparisons": analysis_result.get("pairwise_comparisons", []),
         }
 
-        temp_dir = tempfile.gettempdir()
-        pdf_path = Path(temp_dir) / "tokenizer_report.pdf"
-
-        build_pdf_report(report_source, pdf_path)
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as output:
+            pdf_path = Path(output.name)
+        try:
+            build_pdf_report(report_source, pdf_path)
+        except Exception:
+            pdf_path.unlink(missing_ok=True)
+            raise
 
         return FileResponse(
             path=pdf_path,
             filename="tokenizer_report.pdf",
             media_type="application/pdf",
+            background=BackgroundTask(pdf_path.unlink, missing_ok=True),
         )
 
     except Exception as exc:

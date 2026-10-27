@@ -1,0 +1,22 @@
+# Allow only build/runtime/test inputs. Local reports, secrets, caches, IDE
+# settings and unrelated workspace files never enter the build context.
+**
+!Dockerfile
+!.dockerignore
+!pyproject.toml
+!uv.lock
+!README.md
+!.python-version
+!pytest.ini
+!config.yaml
+!src/
+!src/**
+!tests/
+!tests/**
+!data/
+!data/sample_*.txt
+**/__pycache__/
+**/*.py[cod]
+**/.env
+**/.env.*
+**/.pytest_cache/
