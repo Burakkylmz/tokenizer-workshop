@@ -145,6 +145,29 @@ uv run pytest tests/test_char_tokenizer.py -v
 
 ---
 
+### Docker alternative for contributors
+
+Python and uv are optional on the host when using Docker. Install Git and
+Docker Desktop/Engine with Compose, then follow the [Docker setup in README](README.md#docker-web-cli-and-offline-tests).
+The fork and feature-branch workflow remains the same.
+
+```powershell
+New-Item -ItemType Directory -Force results
+docker compose build
+docker compose run --rm tests
+docker compose up -d --wait web
+docker compose run --rm cli
+docker compose down
+```
+
+Rebuild after editing source, tests, or YAML configuration: the image contains
+these files and does not mount the repository. Tests run in the same Python 3.10
+environment as the application, without networking or API credentials. Four
+Hugging Face integration tests are opt-in (`-m integration`); see the README for
+the network-enabled command. Local `uv run pytest` also defaults to offline tests.
+Keep `.env` and generated `results/` out of commits. Review `git diff` and report
+which tests actually ran; a successful image build alone is not runtime validation.
+
 ## 6. Pulling the latest code
 
 Before starting work, update your local `main` branch.

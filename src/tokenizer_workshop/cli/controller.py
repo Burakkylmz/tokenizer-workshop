@@ -132,7 +132,7 @@ class CLIController:
         Kullanıcıdan tokenizer seçimi alır ve seçilen tokenizer nesnelerini döndürür.
         """
 
-        tokenizer_names = list(self.all_tokenizers.keys())
+        tokenizer_names = list(self.tokenizer_config.keys())
 
         display_tokenizer_menu(self.tokenizer_config)
 
@@ -142,6 +142,12 @@ class CLIController:
             raw_input=raw_selection,
             tokenizer_names=tokenizer_names,
         )
+
+        for name in selected_names:
+            if name not in self.all_tokenizers:
+                self.all_tokenizers[name] = TokenizerFactory.create(
+                    name, **self.tokenizer_config[name]
+                )
 
         return {
             name: self.all_tokenizers[name]
@@ -157,7 +163,6 @@ class CLIController:
             2. compare.py içindeki TOKENIZER_CONFIG'e config ekle
         """
 
-        return {
-            name: TokenizerFactory.create(name, **config)
-            for name, config in self.tokenizer_config.items()
-        }
+        # Construct only selected tokenizers so local experiments never trigger
+        # an unrelated Hugging Face download at menu startup.
+        return {}

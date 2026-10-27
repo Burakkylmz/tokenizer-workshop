@@ -1,0 +1,38 @@
+x-workshop: &workshop
+  image: tokenizer-workshop:local
+  user: "${WORKSHOP_UID:-1000}:${WORKSHOP_GID:-1000}"
+  init: true
+
+services:
+  web:
+    <<: *workshop
+    build: .
+    ports:
+      - "127.0.0.1:${WORKSHOP_PORT:-8000}:8000"
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  cli:
+    <<: *workshop
+    profiles: [tools]
+    command: ["tokenizer-workshop"]
+    stdin_open: true
+    tty: true
+    environment:
+      TOKENIZER_WORKSHOP_OUTPUT_DIR: /app/results
+    volumes:
+      - ./results:/app/results
+
+  tests:
+    <<: *workshop
+    profiles: [tools]
+    command: ["pytest", "-q", "-p", "no:cacheprovider"]
+    network_mode: none
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"

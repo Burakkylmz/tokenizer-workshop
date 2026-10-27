@@ -89,7 +89,7 @@ def load_config(config_path: str | Path = "config.yaml") -> AppConfig:
         provider=llm_raw.get("provider", "groq"),
         model=llm_raw.get("model", "llama-3.1-8b-instant"),
         use_for_explanations=llm_raw.get("use_for_explanations", False),
-        api_key=os.getenv("GROQ_API_KEY"),
+        api_key=(os.getenv("GROQ_API_KEY") if llm_raw.get("use_for_explanations", False) else None),
     )
 
     return AppConfig(
